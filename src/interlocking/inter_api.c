@@ -110,6 +110,7 @@ void CIInter_DefaultSafeProcess(uint16_t ga,uint16_t ea)
 */
 int32_t CIInter_Calculate(void)
 {
+	cross_station_init();
     process_command();
     route_control();
     /*非进路调车*/
@@ -314,15 +315,32 @@ int32_t CIInter_Init(void)
 		memset(CrossStation1SendToEnd[i].LinkSignal,0x00,sizeof(CrossStation1SendToEnd[i].LinkSignal));
 		CrossStation1SendToEnd[i].StartSignal = NO_INDEX;
 		CrossStation1SendToEnd[i].IsRetun = CI_FALSE;
+		CrossStation1SendToEnd[i].RouteDirection = CI_FALSE;
+		CrossStation1SendToEnd[i].LockSection = CI_FALSE;
+		CrossStation1SendToEnd[i].SectionState = SCS_ERROR;
 		memset(CrossStation2SendToEnd[i].LinkSignal,0x00,sizeof(CrossStation2SendToEnd[i].LinkSignal));
 		CrossStation2SendToEnd[i].StartSignal = NO_INDEX;
 		CrossStation2SendToEnd[i].IsRetun = CI_FALSE;
+		CrossStation2SendToEnd[i].RouteDirection = CI_FALSE;
+		CrossStation2SendToEnd[i].LockSection = CI_FALSE;
+		CrossStation2SendToEnd[i].SectionState = SCS_ERROR;
 		memset(CrossStation1RecviceFromStart[i].LinkSignal,0x00,sizeof(CrossStation1RecviceFromStart[i].LinkSignal));
 		CrossStation1RecviceFromStart[i].StartSignal = NO_INDEX;
 		CrossStation1RecviceFromStart[i].IsRetun = CI_FALSE;
+		CrossStation1RecviceFromStart[i].RouteDirection = CI_FALSE;
+		CrossStation1RecviceFromStart[i].LockSection = CI_FALSE;
+		CrossStation1RecviceFromStart[i].SectionState = SCS_ERROR;
 		memset(CrossStation2RecviceFromStart[i].LinkSignal,0x00,sizeof(CrossStation2RecviceFromStart[i].LinkSignal));
 		CrossStation2RecviceFromStart[i].StartSignal = NO_INDEX;
 		CrossStation2RecviceFromStart[i].IsRetun = CI_FALSE;
+		CrossStation2RecviceFromStart[i].RouteDirection = CI_FALSE;
+		CrossStation2RecviceFromStart[i].LockSection = CI_FALSE;
+		CrossStation2RecviceFromStart[i].SectionState = SCS_ERROR;
+
+		CrossStationRoute[i].StartSignal = NO_INDEX;
+		CrossStationRoute[i].RouteSignal = NO_INDEX;
+		CrossStationRoute[i].RouteSection = NO_INDEX;
+		CrossStationRoute[i].IsExist = CI_FALSE;
 	}
 
     can_build_route = CI_FALSE;          /*构成进路建立命令，开始建立进路*/

@@ -360,17 +360,17 @@ typedef struct /*轨道合并相关数据*/
 	uint16_t State3;        /*状态*/
 }section_compose_t;
 
-typedef struct _cross_station_start_end_t/*跨场作业始端-->终端相关数据*/
+typedef struct /*跨场作业始端-->终端相关数据*/
 {
 	char_t LinkSignal[TEST_NAME_LENGTH]; /*对方站关联的信号机*/
 	node_t StartSignal; /*本站关联的信号机*/
 	CI_BOOL IsRetun; /*是否折返*/
-    CI_BOOL RouteDirection;
+	CI_BOOL RouteDirection;/*进路方向：true表示发车，false接车（默认）*/
 	CI_BOOL LockSection;/*是否锁闭区段*/
-    EN_section_state SectionState;
+	EN_section_state SectionState;/*区段状态*/
 }cross_station_start_end_t;
 
-typedef struct _cross_station_end_start_t /*跨场作业终端-->始端相关数据*/
+typedef struct /*跨场作业终端-->始端相关数据*/
 {
 	char_t LinkSignal[TEST_NAME_LENGTH]; /*对方站关联的信号机*/
 	node_t StartSignal; /*本站关联的信号机*/

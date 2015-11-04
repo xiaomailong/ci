@@ -180,6 +180,10 @@ void AnalyzeCFGFile(char_t * pbuff)
 					temp_buff[i] = EOS;
 				}
 			}
+			else
+			{
+				WriteToSpecialConfig(buff,tab_count,temp_buff,comma_count);
+			}
 			tab_count++;
 		}
 		else
@@ -873,13 +877,26 @@ void WriteToSpecialConfig(char_t * SpecialName,uint8_t TabCount,char_t * TempBuf
 			{
 				CrossStation1SendToStart[total_cross_station].StartSignal = index_cmp(TempBuff);
 				CrossStation1SendToEnd[total_cross_station].StartSignal = CrossStation1SendToStart[total_cross_station].StartSignal;
+				CrossStationRoute[total_cross_station].StartSignal = CrossStation1SendToStart[total_cross_station].StartSignal;
 				if ((strlen(TempBuff) != 0) && (index_cmp(TempBuff) == NO_INDEX))
 				{
 					CIHmi_SendDebugTips("Error!跨场作业配置查找不到该对象【%s】",TempBuff);
-				}				
-				if (total_cross_station > MAX_CROSS_STATION)
+				}
+			}
+			else if (TabCount == 2)
+			{
+				CrossStationRoute[total_cross_station].RouteSignal = index_cmp(TempBuff);
+				if ((strlen(TempBuff) != 0) && (index_cmp(TempBuff) == NO_INDEX))
 				{
-					CIHmi_SendDebugTips("Warning!跨场作业配置数量: %d > MAX_CROSS_STATION(%d)，请联系开发人员！",total_cross_station,MAX_CROSS_STATION);
+					CIHmi_SendDebugTips("Error!跨场作业配置查找不到该对象【%s】",TempBuff);
+				}
+			}
+			else if (TabCount == 3)
+			{
+				CrossStationRoute[total_cross_station].RouteSection = index_cmp(TempBuff);
+				if ((strlen(TempBuff) != 0) && (index_cmp(TempBuff) == NO_INDEX))
+				{
+					CIHmi_SendDebugTips("Error!跨场作业配置查找不到该对象【%s】",TempBuff);
 				}
 				total_cross_station++;
 			}
@@ -899,13 +916,26 @@ void WriteToSpecialConfig(char_t * SpecialName,uint8_t TabCount,char_t * TempBuf
 			{
 				CrossStation2SendToStart[total_cross_station - 1].StartSignal = index_cmp(TempBuff);
 				CrossStation2SendToEnd[total_cross_station - 1].StartSignal = CrossStation2SendToStart[total_cross_station - 1].StartSignal;
+				CrossStationRoute[total_cross_station].StartSignal = CrossStation2SendToStart[total_cross_station - 1].StartSignal;
 				if ((strlen(TempBuff) != 0) && (index_cmp(TempBuff) == NO_INDEX))
 				{
 					CIHmi_SendDebugTips("Error!跨场作业配置查找不到该对象【%s】",TempBuff);
-				}				
-				if (total_cross_station > MAX_CROSS_STATION)
+				}
+			}
+			else if (TabCount == 2)
+			{
+				CrossStationRoute[total_cross_station].RouteSignal = index_cmp(TempBuff);
+				if ((strlen(TempBuff) != 0) && (index_cmp(TempBuff) == NO_INDEX))
 				{
-					CIHmi_SendDebugTips("Warning!跨场作业配置数量: %d > MAX_CROSS_STATION(%d)，请联系开发人员！",total_cross_station,MAX_CROSS_STATION);
+					CIHmi_SendDebugTips("Error!跨场作业配置查找不到该对象【%s】",TempBuff);
+				}
+			}
+			else if (TabCount == 3)
+			{
+				CrossStationRoute[total_cross_station].RouteSection = index_cmp(TempBuff);
+				if ((strlen(TempBuff) != 0) && (index_cmp(TempBuff) == NO_INDEX))
+				{
+					CIHmi_SendDebugTips("Error!跨场作业配置查找不到该对象【%s】",TempBuff);
 				}
 				total_cross_station++;
 			}
@@ -916,7 +946,10 @@ void WriteToSpecialConfig(char_t * SpecialName,uint8_t TabCount,char_t * TempBuf
 		}
 		else
 		{
-			CIHmi_SendDebugTips("Warning!跨场作业配置文件错误，请联系开发人员！");
+			if (total_cross_station > MAX_CROSS_STATION)
+			{
+				CIHmi_SendDebugTips("Warning!跨场作业配置数量: %d > MAX_CROSS_STATION(%d)，请联系开发人员！",total_cross_station,MAX_CROSS_STATION);
+			}
 		}		
 	}
 	/*延续进路*/
@@ -1044,7 +1077,10 @@ void WriteToSpecialConfig(char_t * SpecialName,uint8_t TabCount,char_t * TempBuf
 			}
 			else
 			{
-				CIHmi_SendDebugTips("Warning!道口配置错误！");
+				if (strlen_check(TempBuff) != 0)
+				{
+					CIHmi_SendDebugTips("Warning!道口配置错误！");
+				}
 			}
 		}
 		else if (TabCount == 3)
@@ -1085,8 +1121,11 @@ void WriteToSpecialConfig(char_t * SpecialName,uint8_t TabCount,char_t * TempBuf
 					dk_config[total_high_cross - 1].Switchs[count].Location = SWS_REVERSE;
 				}
 				else
-				{
-					CIHmi_SendDebugTips("Warning!道口配置错误！");
+				{					
+					if (strlen_check(TempBuff) != 0)
+					{
+						CIHmi_SendDebugTips("Warning!道口配置错误！");
+					}
 				}
 				dk_config[total_high_cross - 1].SwitchsCount++;
 			}

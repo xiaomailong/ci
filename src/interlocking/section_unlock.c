@@ -298,6 +298,10 @@ void command_section_unlock( node_t index )
 				}
 				CIHmi_SendNormalTips("%s解锁！",gn_name(index));
 			}
+			else
+			{
+				cn_locked_state(index,LT_LOCKED);
+			}
 		}		
 	}
 	FUNCTION_OUT;

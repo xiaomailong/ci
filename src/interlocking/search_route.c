@@ -104,7 +104,7 @@ int16_t get_next_index(int16_t ILT_index);
 void search_route( void )
 {
 	int16_t ILT_routes[MAX_CHANGE_ROUTE][MAX_ILT_PER_ROUTES];
-	int16_t valid_ILT_index = NO_INDEX,i;
+	int16_t valid_ILT_index = NO_INDEX,i,j;
 	node_t successive_start_signal = NO_INDEX;
 	route_t successive_route = NO_INDEX;
 	char_t tips[TEST_NAME_LENGTH];
@@ -142,69 +142,101 @@ void search_route( void )
 				}
 				
 				if (IsFALSE(result))
-			{
-				/*对有延续进路的接车进路分别进行处理*/
-				if(IsTRUE(is_successive_ILT(ILT_routes[valid_ILT_index][0])))
 				{
-					/*获取延续部分始端信号*/
-					successive_start_signal = get_next_index(ILT_routes[valid_ILT_index][0]);
-					if (IsTRUE(is_out_signal(successive_start_signal)))
+					/*对有延续进路的接车进路分别进行处理*/
+					if(IsTRUE(is_successive_ILT(ILT_routes[valid_ILT_index][0])))
 					{
-						successive_route = gn_belong_route(successive_start_signal);
-					}
-					/*hjh 2013-4-22 存在以延续部分始端信号为始端的列车进路*/
-					if ((successive_route != NO_INDEX)
-						&& (gr_start_signal(successive_route) == successive_start_signal)
-						/*&& ((gr_state(successive_route) == RS_ROUTE_LOCKED)
-						|| (gr_state(successive_route) == RS_SIGNAL_OPENED)
-						|| (gr_state(successive_route) == RS_A_SIGNAL_CLOSED))*/
-						&& ((gr_type(successive_route) == RT_TRAIN_ROUTE) || (gr_type(successive_route) == RT_SUCCESSIVE_ROUTE)))
-					{
-						/*检查延续部分条件是否满足*/
-						if ((gr_state(successive_route) == RS_CRASH_INTO_SIGNAL) || (gr_state(successive_route) == RS_AUTO_UNLOCK_FAILURE))
+						/*获取延续部分始端信号*/
+						successive_start_signal = get_next_index(ILT_routes[valid_ILT_index][0]);
+						if (IsTRUE(is_out_signal(successive_start_signal)))
 						{
-							process_warning(ERR_SUCCESSIVE_ROUTE,gr_name(successive_route));
-							/*输出提示信息*/
-							memset(tips,0x00,sizeof(tips));
-							strcat_check(tips,"延续进路条件不满足：",sizeof(tips));
-							OutputHmiNormalTips(tips,successive_route);
+							successive_route = gn_belong_route(successive_start_signal);
+						}
+						/*hjh 2013-4-22 存在以延续部分始端信号为始端的列车进路*/
+						if ((successive_route != NO_INDEX)
+							&& (gr_start_signal(successive_route) == successive_start_signal)
+							/*&& ((gr_state(successive_route) == RS_ROUTE_LOCKED)
+							|| (gr_state(successive_route) == RS_SIGNAL_OPENED)
+							|| (gr_state(successive_route) == RS_A_SIGNAL_CLOSED))*/
+							&& ((gr_type(successive_route) == RT_TRAIN_ROUTE) || (gr_type(successive_route) == RT_SUCCESSIVE_ROUTE)))
+						{
+							/*检查延续部分条件是否满足*/
+							if ((gr_state(successive_route) == RS_CRASH_INTO_SIGNAL) || (gr_state(successive_route) == RS_AUTO_UNLOCK_FAILURE))
+							{
+								process_warning(ERR_SUCCESSIVE_ROUTE,gr_name(successive_route));
+								/*输出提示信息*/
+								memset(tips,0x00,sizeof(tips));
+								strcat_check(tips,"延续进路条件不满足：",sizeof(tips));
+								OutputHmiNormalTips(tips,successive_route);
+							}
+							else
+							{
+								set_route(ILT_routes[valid_ILT_index]);  /*设置进路*/
+								clean_button_log();
+								CIHmi_SendDebugTips("建立延续进路！");
+							}						
 						}
 						else
 						{
-							set_route(ILT_routes[valid_ILT_index]);  /*设置进路*/
-							clean_button_log();
-							CIHmi_SendDebugTips("建立延续进路！");
-						}						
+							/*这个条件的意思是如果当前只按下了接车进路部分的按钮，延续进路相关的按钮还没按下，
+							  此时不应该设置进路数据。必须要等到接车进路和延续进路都搜索出来才开始设置进路数据*/
+							if (ILT_routes[valid_ILT_index][0] != NO_INDEX && ILT_routes[valid_ILT_index][1] != NO_INDEX)
+							{
+								set_route(ILT_routes[valid_ILT_index]);  /*设置进路*/
+								clean_button_log();
+								CIHmi_SendDebugTips("建立延续进路！");
+							}
+						}					
 					}
 					else
 					{
-						/*这个条件的意思是如果当前只按下了接车进路部分的按钮，延续进路相关的按钮还没按下，
-						  此时不应该设置进路数据。必须要等到接车进路和延续进路都搜索出来才开始设置进路数据*/
-						if (ILT_routes[valid_ILT_index][0] != NO_INDEX && ILT_routes[valid_ILT_index][1] != NO_INDEX)
-						{
-							set_route(ILT_routes[valid_ILT_index]);  /*设置进路*/
-							clean_button_log();
-							CIHmi_SendDebugTips("建立延续进路！");
-						}
-					}					
+						/*正常建立进路过程的处理*/
+						set_route(ILT_routes[valid_ILT_index]);  /*设置进路*/
+						clean_button_log();
+						CIHmi_SendDebugTips("建立进路！");
+					}
 				}
-				else
-				{
-					/*正常建立进路过程的处理*/
-					set_route(ILT_routes[valid_ILT_index]);  /*设置进路*/
-					clean_button_log();
-					CIHmi_SendDebugTips("建立进路！");
-				}
-			}
 			}
 			else
 			{
-				/*搜索不成功时，说明操作命令是错误的，所以清除了操作命令*/
-				CIHmi_SendNormalTips("错误办理：%s --> %s",
-					gn_name(gb_node(first_button)),
-					gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-				clean_button_log();
-				process_warning(ERR_NO_ROUTE,"");
+				/*跨场作业搜索虚拟进路*/
+				result = CI_FALSE;
+				for (j = 0; j < MAX_CROSS_STATION; j++)
+				{
+					if ((CrossStationRoute[j].RouteSignal != NO_INDEX)
+						&& (CrossStationRoute[j].RouteSignal == gb_node(first_button))
+						&& (CrossStationRoute[j].StartSignal == gb_node(second_button)))
+					{
+						result = CI_TRUE;
+						CrossStationRoute[j].IsExist = CI_TRUE;
+						clean_button_log();
+						break;
+					}
+				}
+
+				if (IsFALSE(result))
+				{
+					/*搜索不成功时，说明操作命令是错误的，所以清除了操作命令*/
+					CIHmi_SendNormalTips("错误办理：%s --> %s",
+						gn_name(gb_node(first_button)),
+						gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+
+					/*hjh 2015-10-26 按钮错误时跨场作业进路状态为进路建立失败*/
+					for (i = 0; i < MAX_CROSS_STATION; i++)
+					{
+						if (gb_node(first_button) == CrossStation1SendToStart[i].StartSignal)
+						{
+							CrossStation1SendToStart[i].RouteState = RS_FAILURE_TO_BUILD;
+						}
+						if (gb_node(first_button) == CrossStation2SendToStart[i].StartSignal)
+						{
+							CrossStation2SendToStart[i].RouteState = RS_FAILURE_TO_BUILD;
+						}
+					}
+
+					clean_button_log();
+					process_warning(ERR_NO_ROUTE,"");
+				}				
 			}
 		}		
 		can_build_route = CI_FALSE;

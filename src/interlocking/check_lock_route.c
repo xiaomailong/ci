@@ -88,7 +88,7 @@ void check_lock_route(route_t route_index)
 void app_sw_check_select_complete(route_t route_index)
 {
 	route_t fwr = NO_INDEX,bwr = NO_INDEX,oldr = NO_INDEX;
-	route_t i;
+	route_t i,j;
 
 	/*参数检查*/
 	if (IsTRUE(is_route_exist(route_index)))
@@ -114,7 +114,7 @@ void app_sw_check_select_complete(route_t route_index)
 			/*检查进路中的道岔全部转换到位及其他条件*/
 			/*hjh 2013-4-22 延续部分存在时设置接车进路*/
 			if (((fwr == NO_INDEX) && (gr_state(oldr) == RS_SWITCHING_OK)) ||
-				((fwr != NO_INDEX) && (gr_state(fwr) >= RS_SELECT_COMPLETE))
+				((fwr != NO_INDEX) && (gr_state(fwr) >= RS_SELECT_COMPLETE) && (gr_state(fwr) <= RS_SIGNAL_OPENED))
 				|| ((fwr != NO_INDEX) && IsTRUE(have_successive_route(route_index)) && (gr_state(fwr) > RS_SWITCHING_OK)))
 			{
 				/*hjh 2012-12-5 若存在后一进路则需等待后一进路的状态介于RS_SWITCHING_OK和RS_SIGNAL_OPENED之间才能进行信号条件检查*/
@@ -136,6 +136,12 @@ void app_sw_check_select_complete(route_t route_index)
 									{
 										sr_state(route_index,RS_SELECT_COMPLETE);
 									}
+									if (CrossStation1RecviceFromEnd[i].RouteState == RS_FAILURE_TO_BUILD)
+									{
+										sr_state(route_index,RS_FAILURE_TO_BUILD);
+										clear_ci_used_flag(route_index);
+										CrossStation1RecviceFromEnd[i].RouteState = RS_ERROR;
+									}
 									break;
 								}
 								if (strcmp_no_case(CrossStation2RecviceFromEnd[i].LinkSignal,gn_name(gb_node(gr_end_button(route_index)))) == 0)
@@ -144,6 +150,12 @@ void app_sw_check_select_complete(route_t route_index)
 										&& (CrossStation2RecviceFromEnd[i].RouteState <= RS_SIGNAL_OPENED))
 									{
 										sr_state(route_index,RS_SELECT_COMPLETE);
+									}
+									if (CrossStation2RecviceFromEnd[i].RouteState == RS_FAILURE_TO_BUILD)
+									{
+										sr_state(route_index,RS_FAILURE_TO_BUILD);
+										clear_ci_used_flag(route_index);
+										CrossStation2RecviceFromEnd[i].RouteState = RS_ERROR;
 									}
 									break;
 								}
@@ -178,6 +190,8 @@ void app_sw_check_select_complete(route_t route_index)
 								if (CrossStation1RecviceFromEnd[i].RouteState == RS_FAILURE_TO_BUILD)
 								{
 									sr_state(route_index,RS_FAILURE_TO_BUILD);
+									clear_ci_used_flag(route_index);
+									CrossStation1RecviceFromEnd[i].RouteState = RS_ERROR;
 								}
 								break;
 							}
@@ -191,6 +205,8 @@ void app_sw_check_select_complete(route_t route_index)
 								if (CrossStation2RecviceFromEnd[i].RouteState == RS_FAILURE_TO_BUILD)
 								{
 									sr_state(route_index,RS_FAILURE_TO_BUILD);
+									clear_ci_used_flag(route_index);
+									CrossStation2RecviceFromEnd[i].RouteState = RS_ERROR;
 								}
 								break;
 							}
@@ -221,6 +237,33 @@ void app_sw_check_select_complete(route_t route_index)
 				if ((gr_state(i) != RS_FAILURE_TO_BUILD) && (gr_state(i) < RS_ROUTE_LOCKED))
 				{
 					sr_state(i,RS_FAILURE_TO_BUILD);
+
+					/*跨场作业*/
+					for (j = 0; j < MAX_CROSS_STATION; j++)
+					{
+						/*进路状态*/
+						/*站场1*/
+						if (CrossStation1SendToStart[j].StartSignal != NO_INDEX)			
+						{
+							/*信号机及进路状态*/
+							if ((gn_belong_route(CrossStation1SendToStart[j].StartSignal) != NO_INDEX)
+								&& (CrossStation1SendToStart[j].StartSignal == gr_start_signal(gn_belong_route(CrossStation1SendToStart[j].StartSignal))))
+							{
+								CrossStation1SendToStart[j].RouteState = gr_state(gn_belong_route(CrossStation1SendToStart[j].StartSignal));
+							}
+						}
+
+						/*站场2*/
+						if (CrossStation2SendToStart[j].StartSignal != NO_INDEX)
+						{
+							/*信号机及进路状态*/
+							if ((gn_belong_route(CrossStation2SendToStart[j].StartSignal) != NO_INDEX)
+								&& (CrossStation2SendToStart[j].StartSignal == gr_start_signal(gn_belong_route(CrossStation2SendToStart[j].StartSignal))))
+							{
+								CrossStation2SendToStart[j].RouteState = gr_state(gn_belong_route(CrossStation2SendToStart[j].StartSignal));
+							}
+						}
+					}
 				}				
 				i = gr_forward(i);
 			}	
@@ -230,6 +273,33 @@ void app_sw_check_select_complete(route_t route_index)
 				if ((gr_state(i) != RS_FAILURE_TO_BUILD) && (gr_state(i) < RS_ROUTE_LOCKED))
 				{
 					sr_state(i,RS_FAILURE_TO_BUILD);
+
+					/*跨场作业*/
+					for (j = 0; j < MAX_CROSS_STATION; j++)
+					{
+						/*进路状态*/
+						/*站场1*/
+						if (CrossStation1SendToStart[j].StartSignal != NO_INDEX)			
+						{
+							/*信号机及进路状态*/
+							if ((gn_belong_route(CrossStation1SendToStart[j].StartSignal) != NO_INDEX)
+								&& (CrossStation1SendToStart[j].StartSignal == gr_start_signal(gn_belong_route(CrossStation1SendToStart[j].StartSignal))))
+							{
+								CrossStation1SendToStart[j].RouteState = gr_state(gn_belong_route(CrossStation1SendToStart[j].StartSignal));
+							}
+						}
+
+						/*站场2*/
+						if (CrossStation2SendToStart[j].StartSignal != NO_INDEX)
+						{
+							/*信号机及进路状态*/
+							if ((gn_belong_route(CrossStation2SendToStart[j].StartSignal) != NO_INDEX)
+								&& (CrossStation2SendToStart[j].StartSignal == gr_start_signal(gn_belong_route(CrossStation2SendToStart[j].StartSignal))))
+							{
+								CrossStation2SendToStart[j].RouteState = gr_state(gn_belong_route(CrossStation2SendToStart[j].StartSignal));
+							}
+						}
+					}
 				}
 				i = gr_backward(i);
 			}
@@ -459,7 +529,7 @@ void check_select_complete(route_t route_index)
 void app_sw_check_signal_condition(route_t route_index)
 {
 	route_t fwr = NO_INDEX,bwr = NO_INDEX,oldr = NO_INDEX;
-	route_t i;
+	int8_t i,j;
 	char_t tips[TEST_NAME_LENGTH];
 
 	if (IsTRUE(is_route_exist(route_index)))
@@ -483,7 +553,7 @@ void app_sw_check_signal_condition(route_t route_index)
 			}
 			/*hjh 2013-4-22 延续部分存在时设置接车进路*/
 			if (((fwr == NO_INDEX) && (gr_state(oldr) == RS_SIGNAL_CHECKED_OK)) ||
-				((fwr != NO_INDEX) && (gr_state(fwr) >= RS_SIGNAL_CHECKED))
+				((fwr != NO_INDEX) && (gr_state(fwr) >= RS_SIGNAL_CHECKED) && (gr_state(fwr) <= RS_SIGNAL_OPENED))
 				|| ((fwr != NO_INDEX) && IsTRUE(have_successive_route(route_index)) && (gr_state(fwr) > RS_SIGNAL_CHECKED_OK)))
 			{
 				//sr_state(route_index,RS_SIGNAL_CHECKED);
@@ -502,15 +572,48 @@ void app_sw_check_signal_condition(route_t route_index)
 							if ((CrossStation1RecviceFromEnd[i].RouteState >= RS_SIGNAL_CHECKED) 
 								&& (CrossStation1RecviceFromEnd[i].RouteState <= RS_SIGNAL_OPENED))
 							{
-								sr_state(route_index,RS_SIGNAL_CHECKED);
-								/*输出提示信息*/
-								memset(tips,0x00,sizeof(tips));
-								strcat_check(tips,"信号条件检查成功：",sizeof(tips));
-								OutputHmiNormalTips(tips,route_index);
+								//sr_state(route_index,RS_SIGNAL_CHECKED);
+								///*输出提示信息*/
+								//memset(tips,0x00,sizeof(tips));
+								//strcat_check(tips,"信号条件检查成功：",sizeof(tips));
+								//OutputHmiNormalTips(tips,route_index);
+
+								/*检查虚拟进路条件*/
+								for (j = 0; j < MAX_CROSS_STATION; j++)
+								{
+									if ((CrossStationRoute[j].RouteSignal != NO_INDEX)
+										&& (CrossStationRoute[j].StartSignal == gb_node(gr_end_button(route_index))))
+									{
+										if (gn_section_state(CrossStationRoute[j].RouteSection) == SCS_CLEARED)
+										{
+											sr_state(route_index,RS_SIGNAL_CHECKED);
+											/*输出提示信息*/
+											memset(tips,0x00,sizeof(tips));
+											strcat_check(tips,"信号条件检查成功：",sizeof(tips));
+											OutputHmiNormalTips(tips,route_index);
+										}
+										else
+										{
+											CIHmi_SendNormalTips("区段占用：%s",gn_name(CrossStationRoute[j].RouteSection));
+											sr_state(route_index,RS_FAILURE_TO_BUILD);
+										}
+										break;
+									}
+									if (j == MAX_CROSS_STATION - 1)
+									{
+										sr_state(route_index,RS_SIGNAL_CHECKED);
+										/*输出提示信息*/
+										memset(tips,0x00,sizeof(tips));
+										strcat_check(tips,"信号条件检查成功：",sizeof(tips));
+										OutputHmiNormalTips(tips,route_index);
+									}
+								}
 							}
 							if (CrossStation1RecviceFromEnd[i].RouteState == RS_FAILURE_TO_BUILD)
 							{
 								sr_state(route_index,RS_FAILURE_TO_BUILD);
+								clear_ci_used_flag(route_index);
+								CrossStation1RecviceFromEnd[i].RouteState = RS_ERROR;
 							}
 							break;
 						}
@@ -519,15 +622,48 @@ void app_sw_check_signal_condition(route_t route_index)
 							if ((CrossStation2RecviceFromEnd[i].RouteState >= RS_SIGNAL_CHECKED) 
 								&& (CrossStation2RecviceFromEnd[i].RouteState <= RS_SIGNAL_OPENED))
 							{
-								sr_state(route_index,RS_SIGNAL_CHECKED);
-								/*输出提示信息*/
-								memset(tips,0x00,sizeof(tips));
-								strcat_check(tips,"信号条件检查成功：",sizeof(tips));
-								OutputHmiNormalTips(tips,route_index);
+								//sr_state(route_index,RS_SIGNAL_CHECKED);
+								///*输出提示信息*/
+								//memset(tips,0x00,sizeof(tips));
+								//strcat_check(tips,"信号条件检查成功：",sizeof(tips));
+								//OutputHmiNormalTips(tips,route_index);
+
+								/*检查虚拟进路条件*/
+								for (j = 0; j < MAX_CROSS_STATION; j++)
+								{
+									if ((CrossStationRoute[j].RouteSignal != NO_INDEX)
+										&& (CrossStationRoute[j].StartSignal == gb_node(gr_end_button(route_index))))
+									{
+										if (gn_section_state(CrossStationRoute[j].RouteSection) == SCS_CLEARED)
+										{
+											sr_state(route_index,RS_SIGNAL_CHECKED);
+											/*输出提示信息*/
+											memset(tips,0x00,sizeof(tips));
+											strcat_check(tips,"信号条件检查成功：",sizeof(tips));
+											OutputHmiNormalTips(tips,route_index);
+										}
+										else
+										{
+											CIHmi_SendNormalTips("区段占用：%s",gn_name(CrossStationRoute[j].RouteSection));
+											sr_state(route_index,RS_FAILURE_TO_BUILD);
+										}
+										break;
+									}
+									if (j == MAX_CROSS_STATION - 1)
+									{
+										sr_state(route_index,RS_SIGNAL_CHECKED);
+										/*输出提示信息*/
+										memset(tips,0x00,sizeof(tips));
+										strcat_check(tips,"信号条件检查成功：",sizeof(tips));
+										OutputHmiNormalTips(tips,route_index);
+									}
+								}
 							}
 							if (CrossStation2RecviceFromEnd[i].RouteState == RS_FAILURE_TO_BUILD)
 							{
 								sr_state(route_index,RS_FAILURE_TO_BUILD);
+								clear_ci_used_flag(route_index);
+								CrossStation2RecviceFromEnd[i].RouteState = RS_ERROR;
 							}
 							break;
 						}
@@ -691,7 +827,7 @@ CI_BOOL satisfy_signal_condition( route_t route_index)
 void app_sw_lock_route(route_t route_index)
 {
 	route_t fwr = NO_INDEX,bwr = NO_INDEX,oldr = NO_INDEX;
-	route_t i;
+	int8_t i,j,k;
 	char_t tips[TEST_NAME_LENGTH];
 
 	/*参数检查*/
@@ -720,7 +856,7 @@ void app_sw_lock_route(route_t route_index)
 				/*判断该进路可以锁闭的条件*/
 				/*hjh 2013-4-22 延续部分存在时设置接车进路*/
 				if (((fwr == NO_INDEX) && (gr_state(oldr) == RS_ROUTE_LOCKED_OK)) ||
-					((fwr != NO_INDEX) && (gr_state(fwr) >= RS_ROUTE_LOCKED))
+					((fwr != NO_INDEX) && (gr_state(fwr) >= RS_ROUTE_LOCKED) && (gr_state(fwr) <= RS_SIGNAL_OPENED))
 					|| ((fwr != NO_INDEX) && IsTRUE(have_successive_route(route_index)) && (gr_state(fwr) > RS_ROUTE_LOCKED_OK)))
 				{
 					///*设置进路中及与进路相关的信号节点锁闭标志*/
@@ -746,22 +882,96 @@ void app_sw_lock_route(route_t route_index)
 								if ((CrossStation1RecviceFromEnd[i].RouteState >= RS_ROUTE_LOCKED)
 									&& (CrossStation1RecviceFromEnd[i].RouteState <= RS_SIGNAL_OPENED))
 								{
-									/*设置进路中及与进路相关的信号节点锁闭标志*/
-									set_route_lock_nodes(route_index);						
-									/*清除进路中及与进路相关信号节点的征用标志*/
-									clear_ci_used_flag(route_index);
-									/*设置进路状态为进路已锁闭*/
-									sr_state(route_index,RS_ROUTE_LOCKED);
-									/*记录当前处理周期*/
-									sr_updata_cycle(route_index);
-									/*输出提示信息*/
-									memset(tips,0x00,sizeof(tips));
-									strcat_check(tips,"进路锁闭：",sizeof(tips));
-									OutputHmiNormalTips(tips,route_index);
+									///*设置进路中及与进路相关的信号节点锁闭标志*/
+									//set_route_lock_nodes(route_index);						
+									///*清除进路中及与进路相关信号节点的征用标志*/
+									//clear_ci_used_flag(route_index);
+									///*设置进路状态为进路已锁闭*/
+									//sr_state(route_index,RS_ROUTE_LOCKED);
+									///*记录当前处理周期*/
+									//sr_updata_cycle(route_index);
+									///*输出提示信息*/
+									//memset(tips,0x00,sizeof(tips));
+									//strcat_check(tips,"进路锁闭：",sizeof(tips));
+									//OutputHmiNormalTips(tips,route_index);
+
+									/*锁闭虚拟进路*/
+									for (j = 0; j < MAX_CROSS_STATION; j++)
+									{
+										if ((CrossStationRoute[j].RouteSignal != NO_INDEX)
+											&& (CrossStationRoute[j].StartSignal == gb_node(gr_end_button(route_index))))
+										{
+											sn_locked_state(CrossStationRoute[j].RouteSection,LT_LOCKED);
+											/*锁闭跨场作业区段*/
+											for (k = 0; k < MAX_CROSS_STATION; k++)
+											{
+												if ((CrossStation1SendToEnd[k].StartSignal != NO_INDEX)
+													&& (CrossStation1SendToEnd[k].StartSignal == gb_node(gr_end_button(route_index))))
+												{
+													CrossStation1SendToEnd[k].LockSection = CI_TRUE;
+													CrossStation1SendToEnd[i].RouteDirection = CI_TRUE;
+												}
+												if ((CrossStation2SendToEnd[k].StartSignal != NO_INDEX)
+													&& (CrossStation2SendToEnd[k].StartSignal == gb_node(gr_end_button(route_index))))
+												{
+													CrossStation2SendToEnd[k].LockSection = CI_TRUE;
+													CrossStation2SendToEnd[i].RouteDirection = CI_TRUE;
+												}
+											}
+
+											/*设置进路中及与进路相关的信号节点锁闭标志*/
+											set_route_lock_nodes(route_index);						
+											/*清除进路中及与进路相关信号节点的征用标志*/
+											clear_ci_used_flag(route_index);
+											/*设置进路状态为进路已锁闭*/
+											sr_state(route_index,RS_ROUTE_LOCKED);
+											/*记录当前处理周期*/
+											sr_updata_cycle(route_index);
+											/*输出提示信息*/
+											memset(tips,0x00,sizeof(tips));
+											strcat_check(tips,"进路锁闭：",sizeof(tips));
+											OutputHmiNormalTips(tips,route_index);											
+											break;
+										}
+										if (j == MAX_CROSS_STATION - 1)
+										{
+											/*锁闭跨场作业区段*/
+											for (k = 0; k < MAX_CROSS_STATION; k++)
+											{
+												if ((CrossStation1SendToEnd[k].StartSignal != NO_INDEX)
+													&& (CrossStation1SendToEnd[k].StartSignal == gb_node(gr_end_button(route_index))))
+												{
+													CrossStation1SendToEnd[k].LockSection = CI_TRUE;
+													CrossStation1SendToEnd[i].RouteDirection = CI_TRUE;
+												}
+												if ((CrossStation2SendToEnd[k].StartSignal != NO_INDEX)
+													&& (CrossStation2SendToEnd[k].StartSignal == gb_node(gr_end_button(route_index))))
+												{
+													CrossStation2SendToEnd[k].LockSection = CI_TRUE;
+													CrossStation2SendToEnd[i].RouteDirection = CI_TRUE;
+												}
+											}
+
+											/*设置进路中及与进路相关的信号节点锁闭标志*/
+											set_route_lock_nodes(route_index);						
+											/*清除进路中及与进路相关信号节点的征用标志*/
+											clear_ci_used_flag(route_index);
+											/*设置进路状态为进路已锁闭*/
+											sr_state(route_index,RS_ROUTE_LOCKED);
+											/*记录当前处理周期*/
+											sr_updata_cycle(route_index);
+											/*输出提示信息*/
+											memset(tips,0x00,sizeof(tips));
+											strcat_check(tips,"进路锁闭：",sizeof(tips));
+											OutputHmiNormalTips(tips,route_index);
+										}
+									}
 								}
 								if (CrossStation1RecviceFromEnd[i].RouteState == RS_FAILURE_TO_BUILD)
 								{
 									sr_state(route_index,RS_FAILURE_TO_BUILD);
+									clear_ci_used_flag(route_index);
+									CrossStation1RecviceFromEnd[i].RouteState = RS_ERROR;
 								}
 								break;
 							}
@@ -770,27 +980,118 @@ void app_sw_lock_route(route_t route_index)
 								if ((CrossStation2RecviceFromEnd[i].RouteState >= RS_ROUTE_LOCKED)
 									&& (CrossStation2RecviceFromEnd[i].RouteState <= RS_SIGNAL_OPENED))
 								{
-									/*设置进路中及与进路相关的信号节点锁闭标志*/
-									set_route_lock_nodes(route_index);						
-									/*清除进路中及与进路相关信号节点的征用标志*/
-									clear_ci_used_flag(route_index);
-									/*设置进路状态为进路已锁闭*/
-									sr_state(route_index,RS_ROUTE_LOCKED);
-									/*记录当前处理周期*/
-									sr_updata_cycle(route_index);
-									/*输出提示信息*/
-									memset(tips,0x00,sizeof(tips));
-									strcat_check(tips,"进路锁闭：",sizeof(tips));
-									OutputHmiNormalTips(tips,route_index);
+									///*设置进路中及与进路相关的信号节点锁闭标志*/
+									//set_route_lock_nodes(route_index);						
+									///*清除进路中及与进路相关信号节点的征用标志*/
+									//clear_ci_used_flag(route_index);
+									///*设置进路状态为进路已锁闭*/
+									//sr_state(route_index,RS_ROUTE_LOCKED);
+									///*记录当前处理周期*/
+									//sr_updata_cycle(route_index);
+									///*输出提示信息*/
+									//memset(tips,0x00,sizeof(tips));
+									//strcat_check(tips,"进路锁闭：",sizeof(tips));
+									//OutputHmiNormalTips(tips,route_index);
+
+									/*锁闭虚拟进路*/
+									for (j = 0; j < MAX_CROSS_STATION; j++)
+									{
+										if ((CrossStationRoute[j].RouteSignal != NO_INDEX)
+											&& (CrossStationRoute[j].StartSignal == gb_node(gr_end_button(route_index))))
+										{
+											sn_locked_state(CrossStationRoute[j].RouteSection,LT_LOCKED);
+											/*锁闭跨场作业区段*/
+											for (k = 0; k < MAX_CROSS_STATION; k++)
+											{
+												if ((CrossStation1SendToEnd[k].StartSignal != NO_INDEX)
+													&& (CrossStation1SendToEnd[k].StartSignal == gb_node(gr_end_button(route_index))))
+												{
+													CrossStation1SendToEnd[k].LockSection = CI_TRUE;
+													CrossStation1SendToEnd[i].RouteDirection = CI_TRUE;
+												}
+												if ((CrossStation2SendToEnd[k].StartSignal != NO_INDEX)
+													&& (CrossStation2SendToEnd[k].StartSignal == gb_node(gr_end_button(route_index))))
+												{
+													CrossStation2SendToEnd[k].LockSection = CI_TRUE;
+													CrossStation2SendToEnd[i].RouteDirection = CI_TRUE;
+												}
+											}
+
+											/*设置进路中及与进路相关的信号节点锁闭标志*/
+											set_route_lock_nodes(route_index);						
+											/*清除进路中及与进路相关信号节点的征用标志*/
+											clear_ci_used_flag(route_index);
+											/*设置进路状态为进路已锁闭*/
+											sr_state(route_index,RS_ROUTE_LOCKED);
+											/*记录当前处理周期*/
+											sr_updata_cycle(route_index);
+											/*输出提示信息*/
+											memset(tips,0x00,sizeof(tips));
+											strcat_check(tips,"进路锁闭：",sizeof(tips));
+											OutputHmiNormalTips(tips,route_index);
+											break;
+										}
+										if (j == MAX_CROSS_STATION - 1)
+										{
+											/*锁闭跨场作业区段*/
+											for (k = 0; k < MAX_CROSS_STATION; k++)
+											{
+												if ((CrossStation1SendToEnd[k].StartSignal != NO_INDEX)
+													&& (CrossStation1SendToEnd[k].StartSignal == gb_node(gr_end_button(route_index))))
+												{
+													CrossStation1SendToEnd[k].LockSection = CI_TRUE;
+													CrossStation1SendToEnd[i].RouteDirection = CI_TRUE;
+												}
+												if ((CrossStation2SendToEnd[k].StartSignal != NO_INDEX)
+													&& (CrossStation2SendToEnd[k].StartSignal == gb_node(gr_end_button(route_index))))
+												{
+													CrossStation2SendToEnd[k].LockSection = CI_TRUE;
+													CrossStation2SendToEnd[i].RouteDirection = CI_TRUE;
+												}
+											}
+
+											/*设置进路中及与进路相关的信号节点锁闭标志*/
+											set_route_lock_nodes(route_index);						
+											/*清除进路中及与进路相关信号节点的征用标志*/
+											clear_ci_used_flag(route_index);
+											/*设置进路状态为进路已锁闭*/
+											sr_state(route_index,RS_ROUTE_LOCKED);
+											/*记录当前处理周期*/
+											sr_updata_cycle(route_index);
+											/*输出提示信息*/
+											memset(tips,0x00,sizeof(tips));
+											strcat_check(tips,"进路锁闭：",sizeof(tips));
+											OutputHmiNormalTips(tips,route_index);
+										}
+									}
 								}
 								if (CrossStation2RecviceFromEnd[i].RouteState == RS_FAILURE_TO_BUILD)
 								{
 									sr_state(route_index,RS_FAILURE_TO_BUILD);
+									clear_ci_used_flag(route_index);
+									CrossStation2RecviceFromEnd[i].RouteState = RS_ERROR;
 								}
 								break;
 							}
 							if (i == MAX_CROSS_STATION - 1)
 							{
+								/*锁闭跨场作业区段*/
+								for (k = 0; k < MAX_CROSS_STATION; k++)
+								{
+									if ((CrossStation1SendToEnd[k].StartSignal != NO_INDEX)
+										&& (CrossStation1SendToEnd[k].StartSignal == gb_node(gr_end_button(route_index))))
+									{
+										CrossStation1SendToEnd[k].LockSection = CI_TRUE;
+										CrossStation1SendToEnd[i].RouteDirection = CI_TRUE;
+									}
+									if ((CrossStation2SendToEnd[k].StartSignal != NO_INDEX)
+										&& (CrossStation2SendToEnd[k].StartSignal == gb_node(gr_end_button(route_index))))
+									{
+										CrossStation2SendToEnd[k].LockSection = CI_TRUE;
+										CrossStation2SendToEnd[i].RouteDirection = CI_TRUE;
+									}
+								}
+
 								/*设置进路中及与进路相关的信号节点锁闭标志*/
 								set_route_lock_nodes(route_index);						
 								/*清除进路中及与进路相关信号节点的征用标志*/

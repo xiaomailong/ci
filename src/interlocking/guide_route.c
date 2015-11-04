@@ -765,7 +765,7 @@ void guide_signal_opened_process( route_t route_index )
 					result = CI_FALSE;
 				}
 			}
-//CIHmi_SendNormalTips("111111111111111111111");
+
 			/*判断允许信号断丝*/
 			if ((gn_signal_state(start_signal) == SGS_FILAMENT_BREAK)
 				|| (gn_signal_state(start_signal) == SGS_H))

@@ -104,9 +104,6 @@ CIAPI_DATA(special_input_t) special_output_config[MAX_SPECIAL_INPUT];/*特殊输
 CIAPI_DATA(signal_show_change_t) signal_show_change_config[MAX_SIGNAL_SHOW_CHANGE];/*信号机显示变更配置*/
 CIAPI_DATA(signa_delay_open_t) signal_delay_open_config[MAX_SIGNAL_DELAY_OPEN];/*信号延时开放配置*/
 CIAPI_DATA(section_compose_t) section_compose_config[MAX_SECTION_COMPOSE];/*轨道合并配置*/
-//CIAPI_DATA(cross_station_t) send_cross_station_config[MAX_CROSS_STATION];/*跨场作业发送数据*/
-//CIAPI_DATA(cross_station_t) recv1_cross_station_config[MAX_CROSS_STATION];/*跨场作业接收数据1*/
-//CIAPI_DATA(cross_station_t) recv2_cross_station_config[MAX_CROSS_STATION];/*跨场作业接收数据2*/
 
 /**************************************************
 跨场作业说明：
@@ -131,6 +128,9 @@ CIAPI_DATA(cross_station_end_start_t) CrossStation2SendToStart[MAX_CROSS_STATION
 CIAPI_DATA(cross_station_end_start_t) CrossStation2RecviceFromEnd[MAX_CROSS_STATION];/*跨场作业接收终端数据*/
 CIAPI_DATA(cross_station_start_end_t) CrossStation2SendToEnd[MAX_CROSS_STATION];/*跨场作业始端-->终端发送数据*/
 CIAPI_DATA(cross_station_start_end_t) CrossStation2RecviceFromStart[MAX_CROSS_STATION];/*跨场作业接收始端数据*/
+/*虚拟进路*/
+CIAPI_DATA(cross_station_route_t) CrossStationRoute[MAX_CROSS_STATION];/*跨场作业虚拟进路数据*/
+
 
 
 #endif

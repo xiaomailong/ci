@@ -131,3 +131,5 @@ cross_station_end_start_t CrossStation2SendToStart[MAX_CROSS_STATION];/*跨场�
 cross_station_end_start_t CrossStation2RecviceFromEnd[MAX_CROSS_STATION];/*跨场作业接收终端数据*/
 cross_station_start_end_t CrossStation2SendToEnd[MAX_CROSS_STATION];/*跨场作业始端-->终端发送数据*/
 cross_station_start_end_t CrossStation2RecviceFromStart[MAX_CROSS_STATION];/*跨场作业接收始端数据*/
+/*虚拟进路*/
+cross_station_route_t CrossStationRoute[MAX_CROSS_STATION];/*跨场作业虚拟进路数据*/

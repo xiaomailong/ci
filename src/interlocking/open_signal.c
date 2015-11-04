@@ -511,7 +511,7 @@ void open_shunting_signal(route_t route_index)
 {
 	EN_route_state rs;
 	route_t fwr,bwr;
-	int16_t i,start_signal;
+	int16_t i,j,start_signal;
 	CI_BOOL error = CI_FALSE;
 	CI_BOOL result = CI_FALSE;
 
@@ -671,7 +671,25 @@ void open_shunting_signal(route_t route_index)
 								{
 									if (CrossStation1RecviceFromEnd[i].RouteState == RS_SIGNAL_OPENED)
 									{
-										result = CI_TRUE;
+										//result = CI_TRUE;
+										/*开放虚拟进路信号*/
+										for (j = 0; j < MAX_CROSS_STATION; j++)
+										{
+											if ((CrossStationRoute[j].RouteSignal != NO_INDEX)
+												&& (CrossStationRoute[j].StartSignal == gb_node(gr_end_button(route_index))))
+											{
+												send_signal_command(CrossStationRoute[j].RouteSignal,SGS_B);
+												if (gn_signal_state(CrossStationRoute[j].RouteSignal) == SGS_B)
+												{
+													result = CI_TRUE;
+												}												
+												break;
+											}
+											if (j == MAX_CROSS_STATION - 1)
+											{
+												result = CI_TRUE;
+											}
+										}
 									}
 									break;
 								}
@@ -679,7 +697,25 @@ void open_shunting_signal(route_t route_index)
 								{
 									if (CrossStation2RecviceFromEnd[i].RouteState == RS_SIGNAL_OPENED)
 									{
-										result = CI_TRUE;
+										//result = CI_TRUE;
+										/*开放虚拟进路信号*/
+										for (j = 0; j < MAX_CROSS_STATION; j++)
+										{
+											if ((CrossStationRoute[j].RouteSignal != NO_INDEX)
+												&& (CrossStationRoute[j].StartSignal == gb_node(gr_end_button(route_index))))
+											{
+												send_signal_command(CrossStationRoute[j].RouteSignal,SGS_B);
+												if (gn_signal_state(CrossStationRoute[j].RouteSignal) == SGS_B)
+												{
+													result = CI_TRUE;
+												}												
+												break;
+											}
+											if (j == MAX_CROSS_STATION - 1)
+											{
+												result = CI_TRUE;
+											}
+										}
 									}
 									break;
 								}

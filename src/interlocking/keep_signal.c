@@ -949,7 +949,7 @@ EN_signal_state change_signal_color(route_t route_index)
 {
 	EN_signal_state result = SGS_H;
 	EN_node_type signal_type;
-	int16_t temp,i;
+	int16_t temp,i,j;
 	
 	FUNCTION_IN;
 	/*参数检查*/
@@ -983,7 +983,31 @@ EN_signal_state change_signal_color(route_t route_index)
 				&& (signal_show_change_config[i].EndSignal == gb_node(gr_end_button(route_index)))
 				&& (signal_show_change_config[i].OldShow == result))
 			{
-				result = signal_show_change_config[i].NewShow;
+				//result = signal_show_change_config[i].NewShow;
+				/*跨场作业*/
+				if (gr_other_flag(route_index) == ROF_CROSS_STATION)
+				{
+					for (j = 0; j < MAX_CROSS_STATION; j++)
+					{
+						if (strcmp_no_case(CrossStation1RecviceFromEnd[j].LinkSignal,gn_name(gb_node(gr_end_button(route_index)))) == 0)
+						{
+							break;
+						}
+						if (strcmp_no_case(CrossStation2RecviceFromEnd[j].LinkSignal,gn_name(gb_node(gr_end_button(route_index)))) == 0)
+						{
+							break;
+						}
+						if (j == MAX_CROSS_STATION - 1)
+						{
+							result = signal_show_change_config[i].NewShow;
+						}
+					}							
+				}
+				else
+				{
+					result = signal_show_change_config[i].NewShow;
+				}
+
 				break;
 			}
 		}
@@ -1993,7 +2017,7 @@ CI_BOOL is_signal_close(node_t signal_node)
 ****************************************************/
 void abnormal_signal_close()
 {
-	int16_t i;
+	int16_t i,j;
 	route_t route_index;
 	node_t next_node = NO_INDEX;
 
@@ -2014,7 +2038,23 @@ void abnormal_signal_close()
 				/*调车信号机点蓝灯*/
 				if (IsTRUE(is_shunting_signal(i)))
 				{
-					send_signal_command(i,SGS_A);
+					//send_signal_command(i,SGS_A);					
+					/*跨场作业虚拟进路*/
+					for (j = 0; j < MAX_CROSS_STATION; j++)
+					{
+						if (CrossStationRoute[j].RouteSignal == i)
+						{
+							if (IsFALSE(is_node_locked(CrossStationRoute[j].RouteSection,LT_LOCKED)))
+							{
+								send_signal_command(i,SGS_A);
+							}
+							break;
+						}
+						if (j == MAX_CROSS_STATION - 1)
+						{
+							send_signal_command(i,SGS_A);
+						}
+					}
 				}
 				/*列车信号机点红灯*/
 				else
@@ -2357,3 +2397,4 @@ char_t* hmi_signal_tips(EN_signal_state ss)
 	}
 	return result;
 }
+

@@ -235,6 +235,33 @@ void app_sw_check_ci_condition(route_t route_index)
 				if ((gr_state(i) != RS_FAILURE_TO_BUILD) && (gr_state(i) < RS_ROUTE_LOCKED))
 				{
 					sr_state(i,RS_FAILURE_TO_BUILD);
+
+					/*跨场作业*/
+					for (j = 0; j < MAX_CROSS_STATION; j++)
+					{
+						/*进路状态*/
+						/*站场1*/
+						if (CrossStation1SendToStart[j].StartSignal != NO_INDEX)			
+						{
+							/*信号机及进路状态*/
+							if ((gn_belong_route(CrossStation1SendToStart[j].StartSignal) != NO_INDEX)
+								&& (CrossStation1SendToStart[j].StartSignal == gr_start_signal(gn_belong_route(CrossStation1SendToStart[j].StartSignal))))
+							{
+								CrossStation1SendToStart[j].RouteState = gr_state(gn_belong_route(CrossStation1SendToStart[j].StartSignal));
+							}
+						}
+
+						/*站场2*/
+						if (CrossStation2SendToStart[j].StartSignal != NO_INDEX)
+						{
+							/*信号机及进路状态*/
+							if ((gn_belong_route(CrossStation2SendToStart[j].StartSignal) != NO_INDEX)
+								&& (CrossStation2SendToStart[j].StartSignal == gr_start_signal(gn_belong_route(CrossStation2SendToStart[j].StartSignal))))
+							{
+								CrossStation2SendToStart[j].RouteState = gr_state(gn_belong_route(CrossStation2SendToStart[j].StartSignal));
+							}
+						}
+					}
 				}
 				i = gr_forward(i);
 			}			
@@ -254,7 +281,7 @@ void check_ci_condition(route_t route_index)
 {
 	CI_BOOL result = CI_TRUE;
 	char_t tips[TEST_NAME_LENGTH];
-	int16_t i;
+	int16_t i,j;
 
 	FUNCTION_IN;
 
@@ -378,16 +405,43 @@ void check_ci_condition(route_t route_index)
 						if ((CrossStation1RecviceFromEnd[i].RouteState >= RS_ERROR) 
 							&& (CrossStation1RecviceFromEnd[i].RouteState <= RS_SIGNAL_OPENED))
 						{
-							sr_state(route_index,RS_CCIC_OK);
-							sr_clear_error_count(route_index);
+							/*sr_state(route_index,RS_CCIC_OK);
+							sr_clear_error_count(route_index);*/
+							/*检查虚拟进路条件*/
+							for (j = 0; j < MAX_CROSS_STATION; j++)
+							{
+								if ((CrossStationRoute[j].RouteSignal != NO_INDEX)
+									&& (CrossStationRoute[j].StartSignal == gb_node(gr_end_button(route_index))))
+								{
+									if (gn_section_state(CrossStationRoute[j].RouteSection) == SCS_CLEARED)
+									{
+										sr_state(route_index,RS_CCIC_OK);
+										sr_clear_error_count(route_index);
+									}
+									else
+									{
+										CIHmi_SendNormalTips("区段占用：%s",gn_name(CrossStationRoute[j].RouteSection));
+										sr_state(route_index,RS_FAILURE_TO_BUILD);
+										sr_clear_error_count(route_index);
+									}
+									break;
+								}
+								if (j == MAX_CROSS_STATION - 1)
+								{
+									sr_state(route_index,RS_CCIC_OK);
+									sr_clear_error_count(route_index);
+								}
+							}
 						}
-						else if (CrossStation1RecviceFromEnd[i].RouteState == RS_FAILURE_TO_BUILD)
+						/*else if (CrossStation1RecviceFromEnd[i].RouteState == RS_FAILURE_TO_BUILD)
 						{
 							sr_state(route_index,RS_FAILURE_TO_BUILD);
 							sr_clear_error_count(route_index);
-						}
+							CrossStation1RecviceFromEnd[i].RouteState = RS_ERROR;
+						}*/
 						else
 						{
+							sr_state(route_index,RS_CCIC_OK);
 							sr_increament_error_count(route_index);
 							if (gr_error_count(route_index) > MAX_ERROR_PER_COMMAND)
 							{
@@ -408,16 +462,43 @@ void check_ci_condition(route_t route_index)
 						if ((CrossStation2RecviceFromEnd[i].RouteState >= RS_ERROR) 
 							&& (CrossStation2RecviceFromEnd[i].RouteState <= RS_SIGNAL_OPENED))
 						{
-							sr_state(route_index,RS_CCIC_OK);
-							sr_clear_error_count(route_index);
+							/*sr_state(route_index,RS_CCIC_OK);
+							sr_clear_error_count(route_index);*/
+							/*检查虚拟进路条件*/
+							for (j = 0; j < MAX_CROSS_STATION; j++)
+							{
+								if ((CrossStationRoute[j].RouteSignal != NO_INDEX)
+									&& (CrossStationRoute[j].StartSignal == gb_node(gr_end_button(route_index))))
+								{
+									if (gn_section_state(CrossStationRoute[j].RouteSection) == SCS_CLEARED)
+									{
+										sr_state(route_index,RS_CCIC_OK);
+										sr_clear_error_count(route_index);
+									}
+									else
+									{
+										CIHmi_SendNormalTips("区段占用：%s",gn_name(CrossStationRoute[j].RouteSection));
+										sr_state(route_index,RS_FAILURE_TO_BUILD);
+										sr_clear_error_count(route_index);
+									}
+									break;
+								}
+								if (j == MAX_CROSS_STATION - 1)
+								{
+									sr_state(route_index,RS_CCIC_OK);
+									sr_clear_error_count(route_index);
+								}
+							}
 						}
-						else if (CrossStation2RecviceFromEnd[i].RouteState == RS_FAILURE_TO_BUILD)
+						/*else if (CrossStation2RecviceFromEnd[i].RouteState == RS_FAILURE_TO_BUILD)
 						{
 							sr_state(route_index,RS_FAILURE_TO_BUILD);
 							sr_clear_error_count(route_index);
-						}
+							CrossStation2RecviceFromEnd[i].RouteState = RS_ERROR;
+						}*/
 						else
 						{
+							sr_state(route_index,RS_CCIC_OK);
 							sr_increament_error_count(route_index);
 							if (gr_error_count(route_index) > MAX_ERROR_PER_COMMAND)
 							{
@@ -453,6 +534,33 @@ void check_ci_condition(route_t route_index)
 			memset(tips,0x00,sizeof(tips));
 			strcat_check(tips,"进路建立失败：",sizeof(tips));
 			OutputHmiNormalTips(tips,route_index);
+
+			/*跨场作业*/
+			for (i = 0; i < MAX_CROSS_STATION; i++)
+			{
+				/*进路状态*/
+				/*站场1*/
+				if (CrossStation1SendToStart[i].StartSignal != NO_INDEX)			
+				{
+					/*信号机及进路状态*/
+					if ((gn_belong_route(CrossStation1SendToStart[i].StartSignal) != NO_INDEX)
+						&& (CrossStation1SendToStart[i].StartSignal == gr_start_signal(gn_belong_route(CrossStation1SendToStart[i].StartSignal))))
+					{
+						CrossStation1SendToStart[i].RouteState = gr_state(gn_belong_route(CrossStation1SendToStart[i].StartSignal));
+					}
+				}
+
+				/*站场2*/
+				if (CrossStation2SendToStart[i].StartSignal != NO_INDEX)
+				{
+					/*信号机及进路状态*/
+					if ((gn_belong_route(CrossStation2SendToStart[i].StartSignal) != NO_INDEX)
+						&& (CrossStation2SendToStart[i].StartSignal == gr_start_signal(gn_belong_route(CrossStation2SendToStart[i].StartSignal))))
+					{
+						CrossStation2SendToStart[i].RouteState = gr_state(gn_belong_route(CrossStation2SendToStart[i].StartSignal));
+					}
+				}
+			}
 		}
 	}
 	FUNCTION_OUT;

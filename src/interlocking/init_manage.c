@@ -544,6 +544,14 @@ int16_t graphic_search_route(int16_t ILT_index,int16_t nodes[])
 			{
 				break;
 			}
+			/*hjh 2015-10-22 为了避免进路信号机处还有信号机被搜索至进路中*/
+			if (gn_type(next_node) == NT_ROUTE_SIGNAL)
+			{
+				if (IsTRUE(is_signal(get_next_node(ILT_index,nodes,sp - 1))))
+				{
+					break;
+				}
+			}			
 		}
 		/*获取下一节点*/
 		next_node = get_next_node(ILT_index,nodes,sp - 1);

@@ -108,6 +108,32 @@ int16_t cross_station_search_return_signal(route_t route_index,CI_BOOL is_all_un
 ****************************************************/
 node_t cross_station_is_switch_location_right(route_t current_route,node_t current_node,index_t current_ordinal);
 
+/****************************************************
+函数名：   cross_station_function
+功能描述： 跨场作业虚拟进路功能操作
+返回值：   CI_BOOL
+参数：     CI_BOOL delay_unlock_flag
+作者：	   hejh
+日期：     2015/10/21
+****************************************************/
+CI_BOOL cross_station_function(CI_BOOL delay_unlock_flag);
 
+/****************************************************
+函数名：   cross_station_route
+功能描述： 跨场作业虚拟进路关闭信号和区段解锁
+返回值：   void
+作者：	   hejh
+日期：     2015/10/22
+****************************************************/
+void cross_station_route();
+
+/****************************************************
+函数名：   cross_station_init
+功能描述： 跨场作业进路状态初始化
+返回值：   void
+作者：	   hejh
+日期：     2015/11/03
+****************************************************/
+void cross_station_init();
 
 #endif

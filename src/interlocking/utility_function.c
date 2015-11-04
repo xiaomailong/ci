@@ -5158,10 +5158,10 @@ void print_nodes(void)
 ****************************************************/
 void delete_route(route_t route_index)
 {
-	int16_t i = 0,node,node_count;
+	int16_t i = 0,j,node,node_count;
 	int16_t si,ms,temp;
 	node_t switch_index,another_signal;
-	CI_BOOL belong_route = CI_FALSE;
+	CI_BOOL belong_route = CI_FALSE,result = CI_FALSE;
 
 	/*参数检查*/
 	/*hjh 2014-5-9 删除进路时不一定要设置进路状态为进路已解锁，否则会造成误解*/
@@ -5288,6 +5288,76 @@ void delete_route(route_t route_index)
 				{
 					CrossStation2SendToEnd[i].IsRetun = CI_FALSE;
 					break;
+				}
+
+				/*解锁跨场作业区段*/
+				if (gr_type(route_index) == RT_SHUNTING_ROUTE)
+				{
+					if ((CrossStation1SendToEnd[i].StartSignal != NO_INDEX)
+						&& (CrossStation1SendToEnd[i].StartSignal == gb_node(gr_end_button(route_index))))
+					{
+						result = CI_FALSE;
+						for (j = 0; j < MAX_CROSS_STATION; j++)
+						{
+							if ((CrossStationRoute[j].RouteSignal != NO_INDEX)
+								&& (gn_another_signal(CrossStationRoute[j].RouteSignal) == gb_node(gr_end_button(route_index))))
+							{
+								result = CI_TRUE;
+								break;
+							}
+						}
+						if (IsFALSE(result))
+						{
+							CrossStation1SendToEnd[i].LockSection = CI_FALSE;
+						}					
+					}
+					if ((CrossStation2SendToEnd[i].StartSignal != NO_INDEX)
+						&& (CrossStation2SendToEnd[i].StartSignal == gb_node(gr_end_button(route_index))))
+					{
+						result = CI_FALSE;
+						for (j = 0; j < MAX_CROSS_STATION; j++)
+						{
+							if ((CrossStationRoute[j].RouteSignal != NO_INDEX)
+								&& (gn_another_signal(CrossStationRoute[j].RouteSignal) == gb_node(gr_end_button(route_index))))
+							{
+								result = CI_TRUE;
+								break;
+							}
+						}
+						if (IsFALSE(result))
+						{
+							CrossStation2SendToEnd[i].LockSection = CI_FALSE;
+						}
+					}
+				}
+				else
+				{
+					if ((CrossStation1SendToEnd[i].StartSignal != NO_INDEX)
+						&& (CrossStation1SendToEnd[i].StartSignal == gb_node(gr_end_button(route_index))))
+					{						
+						for (j = 0; j < MAX_CROSS_STATION; j++)
+						{
+							if (CrossStationRoute[j].RouteSignal != NO_INDEX)
+							{
+								cn_locked_state(CrossStationRoute[j].RouteSection,LT_LOCKED);
+								break;
+							}
+						}
+						CrossStation1SendToEnd[i].LockSection = CI_FALSE;					
+					}
+					if ((CrossStation2SendToEnd[i].StartSignal != NO_INDEX)
+						&& (CrossStation2SendToEnd[i].StartSignal == gb_node(gr_end_button(route_index))))
+					{
+						for (j = 0; j < MAX_CROSS_STATION; j++)
+						{
+							if (CrossStationRoute[j].RouteSignal != NO_INDEX)
+							{
+								cn_locked_state(CrossStationRoute[j].RouteSection,LT_LOCKED);
+								break;
+							}
+						}
+						CrossStation2SendToEnd[i].LockSection = CI_FALSE;
+					}
 				}
 			}
 		}		

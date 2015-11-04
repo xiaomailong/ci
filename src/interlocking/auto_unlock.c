@@ -364,7 +364,10 @@ void auto_unlock(route_t current_route)
 		if ((IsTRUE(is_route_exist(current_route))) && (IsTRUE(check_all_sections_unlock(current_route))))
 		{
 			sr_state(current_route,RS_UNLOCKED);	
-			CIHmi_SendNormalTips("进路解锁：%s",gr_name(current_route));
+			/*输出提示信息*/
+			memset(tips,0x00,sizeof(tips));
+			strcat_check(tips,"进路解锁：",sizeof(tips));
+			OutputHmiNormalTips(tips,current_route);
 			delete_route(current_route);
 		}
 	}
@@ -432,6 +435,7 @@ static void shuntting_middle_return_unlock(route_t current_route)
 {
 	route_t lead_route = NO_ROUTE;
 	CI_BOOL error = CI_FALSE;
+	char_t tips[TEST_NAME_LENGTH];
 	
 	/*参数检查*/
 	if ((IsFALSE(is_route_exist(current_route))) || (RT_SHUNTING_ROUTE != gr_type(current_route))
@@ -449,7 +453,10 @@ static void shuntting_middle_return_unlock(route_t current_route)
 			&& IsTRUE(check_juxtapose_unlock_condition(current_route)))
 		{
 			sr_state(current_route,RS_UNLOCKED);
-			CIHmi_SendNormalTips("进路解锁：%s",gr_name(current_route));
+			/*输出提示信息*/
+			memset(tips,0x00,sizeof(tips));
+			strcat_check(tips,"进路解锁：",sizeof(tips));
+			OutputHmiNormalTips(tips,current_route);
 			delete_route(current_route);
 		}
 		/*全部未解锁区段解锁*/
@@ -459,7 +466,10 @@ static void shuntting_middle_return_unlock(route_t current_route)
 			if (lead_route != NO_INDEX)
 			{
 				sr_state(lead_route,RS_UNLOCKED);
-				CIHmi_SendNormalTips("进路解锁：%s",gr_name(current_route));
+				/*输出提示信息*/
+				memset(tips,0x00,sizeof(tips));
+				strcat_check(tips,"进路解锁：",sizeof(tips));
+				OutputHmiNormalTips(tips,current_route);
 				delete_route(lead_route);
 			}
 		}				
@@ -469,7 +479,10 @@ static void shuntting_middle_return_unlock(route_t current_route)
 			&& IsTRUE(check_part_unlock_condition(current_route)))
 		{
 			sr_state(current_route,RS_UNLOCKED);
-			CIHmi_SendNormalTips("进路解锁：%s",gr_name(current_route));
+			/*输出提示信息*/
+			memset(tips,0x00,sizeof(tips));
+			strcat_check(tips,"进路解锁：",sizeof(tips));
+			OutputHmiNormalTips(tips,current_route);
 			delete_route(current_route);
 		}			
 	}
@@ -1327,6 +1340,11 @@ void check_3points_condition(route_t route_index,int16_t node_ordinal)
 							{
 								sn_state_machine(current_section,SCSM_SELF_UNLOCK);
 							}
+							else if ((NT_APP_DEP_SECTION == gn_type(current_section)) 
+								 && (current_section == gr_last_section(route_index)))
+							{
+								sn_state_machine(current_section,SCSM_SELF_UNLOCK);
+							}
 							else
 							{
 								/*并置信号机查找折返信号机*/
@@ -1381,7 +1399,9 @@ void check_3points_condition(route_t route_index,int16_t node_ordinal)
 						{
 							if ((NT_TRACK == gn_type(current_section)) 
 								|| ((NT_STUB_END_SECTION == gn_type(current_section)) && (current_section == gr_last_section(route_index)))
-								|| ((NT_LOCODEPOT_SECTION == gn_type(current_section)) && (current_section == gr_last_section(route_index))))
+								|| ((NT_LOCODEPOT_SECTION == gn_type(current_section)) && (current_section == gr_last_section(route_index)))
+								|| ((NT_NON_SWITCH_SECTION == gn_type(current_section)) && (current_section == gr_last_section(route_index)))
+								|| ((NT_APP_DEP_SECTION == gn_type(current_section)) && (current_section == gr_last_section(route_index))))
 							{
 								sn_state_machine(current_section,SCSM_SELF_UNLOCK);
 							}
@@ -1740,11 +1760,11 @@ static int16_t find_unlock_section(route_t route_index)
 ****************************************************/
 void unlock_section( route_t route_index,int16_t node_ordinal )
 {
-	int16_t i,j;
+	int16_t i,j,k,m,section = NO_INDEX;
 	int16_t node_count = gr_nodes_count(route_index);
 	int16_t current_node,section_switch;
 	node_t another_signal;
-	CI_BOOL result = CI_FALSE;
+	CI_BOOL result = CI_FALSE,temp = CI_FALSE;
 
 	if (IsTRUE(is_route_exist(route_index)))
 	{
@@ -1790,7 +1810,55 @@ void unlock_section( route_t route_index,int16_t node_ordinal )
 					/*如果是尽头线的话就可以只讲将尽头线解锁了*/
 					if ((gn_type(current_node) == NT_STUB_END_SECTION ) || ((gn_type(current_node) == NT_LOCODEPOT_SECTION )))
 					{
-						reset_node(current_node);
+						//reset_node(current_node);
+
+						/*hjh 2015-10-30 跨场作业区段解锁*/
+						for (k = 0; k < MAX_CROSS_STATION; k++)
+						{
+							if (CrossStation1SendToEnd[k].StartSignal != NO_INDEX)
+							{
+								section = CrossStation1SendToEnd[k].StartSignal;
+								for (m = 0; m < TOTAL_SIGNAL_NODE; m++)
+								{
+									if (IsTRUE(is_section(section)))
+									{
+										if (current_node == section)
+										{
+											temp = CI_TRUE;
+										}
+										break;
+									}
+									else
+									{
+										section = gn_backword(gn_direction(CrossStation1SendToEnd[k].StartSignal),section);
+									}
+								}
+							}
+							if (CrossStation2SendToEnd[k].StartSignal != NO_INDEX)
+							{
+								section = CrossStation2SendToEnd[k].StartSignal;
+								for (m = 0; m < TOTAL_SIGNAL_NODE; m++)
+								{
+									if (IsTRUE(is_section(section)))
+									{
+										if (current_node == section)
+										{
+											temp = CI_TRUE;
+										}
+										break;
+									}
+									else
+									{
+										section = gn_backword(gn_direction(CrossStation2SendToEnd[k].StartSignal),section);
+									}
+								}
+							}
+							
+						}
+						if (IsFALSE(temp))
+						{
+							reset_node(current_node);
+						}
 						break;
 					}
 				}
@@ -1821,6 +1889,11 @@ void unlock_section( route_t route_index,int16_t node_ordinal )
 							{
 								if ((gn_belong_route(gr_node(route_index,j)) == route_index)
 									&& ((gn_type(gr_node(route_index,j)) == NT_STUB_END_SECTION ) || ((gn_type(gr_node(route_index,j)) == NT_NON_SWITCH_SECTION ))))
+								{
+									reset_node(gr_node(route_index,j));
+								}
+								if ((gn_belong_route(gr_node(route_index,j)) == route_index)
+									&& (IsTRUE(is_signal(gr_node(route_index,j)))))
 								{
 									reset_node(gr_node(route_index,j));
 								}
@@ -2333,6 +2406,7 @@ void recieve_route_ums( route_t current_route )
 	node_t timer_switch1,timer_switch2;
 	int16_t i;
 	node_t end_signal,last_section,last_switch_section;
+	char_t tips[TEST_NAME_LENGTH];
 	
 	/*接车进路*/
 	end_signal = gb_node(gr_end_button(current_route));
@@ -2400,7 +2474,10 @@ void recieve_route_ums( route_t current_route )
 							if (IsTRUE(check_all_sections_unlock(current_route)))
 							{
 								sr_state(current_route,RS_UNLOCKED);
-								CIHmi_SendNormalTips("进路解锁：%s",gr_name(current_route));
+								/*输出提示信息*/
+								memset(tips,0x00,sizeof(tips));
+								strcat_check(tips,"进路解锁：",sizeof(tips));
+								OutputHmiNormalTips(tips,current_route);
 								delete_route(current_route);
 							}
 						}
@@ -2419,7 +2496,10 @@ void recieve_route_ums( route_t current_route )
 										if (IsTRUE(check_all_sections_unlock(current_route)))
 										{
 											sr_state(current_route,RS_UNLOCKED);
-											CIHmi_SendNormalTips("进路解锁：%s",gr_name(current_route));
+											/*输出提示信息*/
+											memset(tips,0x00,sizeof(tips));
+											strcat_check(tips,"进路解锁：",sizeof(tips));
+											OutputHmiNormalTips(tips,current_route);
 											delete_route(current_route);
 											break;
 										}
@@ -2475,7 +2555,10 @@ void recieve_route_ums( route_t current_route )
 							if (IsTRUE(check_all_sections_unlock(current_route)))
 							{
 								sr_state(current_route,RS_UNLOCKED);
-								CIHmi_SendNormalTips("进路解锁：%s",gr_name(current_route));
+								/*输出提示信息*/
+								memset(tips,0x00,sizeof(tips));
+								strcat_check(tips,"进路解锁：",sizeof(tips));
+								OutputHmiNormalTips(tips,current_route);
 								delete_route(current_route);
 							}
 						}
@@ -2494,7 +2577,10 @@ void recieve_route_ums( route_t current_route )
 										if (IsTRUE(check_all_sections_unlock(current_route)))
 										{
 											sr_state(current_route,RS_UNLOCKED);
-											CIHmi_SendNormalTips("进路解锁：%s",gr_name(current_route));
+											/*输出提示信息*/
+											memset(tips,0x00,sizeof(tips));
+											strcat_check(tips,"进路解锁：",sizeof(tips));
+											OutputHmiNormalTips(tips,current_route);
 											delete_route(current_route);
 											break;
 										}

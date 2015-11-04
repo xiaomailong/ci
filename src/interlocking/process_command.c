@@ -92,6 +92,8 @@ CI_TIMER press_button_time = 0;
 ****************************************************/
 void process_command()
 {
+	int16_t i;
+
 	/*判断接收到按钮按下事件*/
 	if (NO_INDEX != first_button)
 	{
@@ -191,6 +193,23 @@ void process_command()
 				else
 				{
 					CIHmi_SendNormalTips("错误办理：%s,%s",device_name[first_button],device_name[second_button]);
+
+					/*hjh 2015-10-26 按钮错误时跨场作业进路状态为进路建立失败*/
+					if (IsFALSE(can_build_route))
+					{
+						for (i = 0; i < MAX_CROSS_STATION; i++)
+						{
+							if (gb_node(first_button) == CrossStation1SendToStart[i].StartSignal)
+							{
+								CrossStation1SendToStart[i].RouteState = RS_FAILURE_TO_BUILD;
+							}
+							if (gb_node(first_button) == CrossStation2SendToStart[i].StartSignal)
+							{
+								CrossStation2SendToStart[i].RouteState = RS_FAILURE_TO_BUILD;
+							}
+						}
+					}
+
 					/*清除按钮记录*/
 					clean_button_log();	
 				}				
@@ -262,7 +281,7 @@ void process_command()
 					clean_button_log();	
 					process_warning(ERR_NO_ROUTE,"");
 				}
-			}
+			}			
 		}
 	}
 }
@@ -1305,7 +1324,7 @@ void clean_button_log(void)
 void function_button_choose(void)
 {
 	route_t route_index = NO_INDEX;
-	node_t section = NO_NODE;
+	node_t section = NO_NODE;	
 	
 	FUNCTION_IN;
 	/*参数检查*/
@@ -1314,371 +1333,375 @@ void function_button_choose(void)
 		route_index = gn_belong_route(gb_node(second_button));
 	}
 	
-	switch(first_button)
+	/*正常进路*/
+	if (IsFALSE(cross_station_function(CI_FALSE)))
 	{
-		/*取消进路*/	
-		case FB_CANCEL_ROUTE : 
-			/*第二个按钮是进路始端按钮,列车进路的列车按钮，调车进路的调车按钮*/
-			if ((NO_INDEX == route_index) 
-				|| (gr_start_signal(route_index) != gb_node(second_button)) 				
-				|| ((RT_SHUNTING_ROUTE == gr_type(route_index)) && (BT_SHUNTING != gb_type(second_button)))				
-				|| ((RT_TRAIN_ROUTE == gr_type(route_index)) && (BT_TRAIN != gb_type(second_button)))
-				|| ((RT_SUCCESSIVE_ROUTE == gr_type(route_index)) && (BT_TRAIN != gb_type(second_button))))
-			{
-				process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
-				CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-			}
-			else
-			{
-				//CIHmi_SendNormalTips("取消进路：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-				command_cancel_route(route_index);
-			}
-			clean_button_log();
-			break;
-		/*人工解锁*/	
-		case FB_HUMAN_UNLOCK :
-			/*第二个按钮是进路始端按钮,列车进路的列车按钮，调车进路的调车按钮*/
-			if ((NO_INDEX == route_index) || (gr_start_signal(route_index) != gb_node(second_button)) 				
-				|| ((RT_SHUNTING_ROUTE == gr_type(route_index)) && (BT_SHUNTING != gb_type(second_button)))				
-				|| ((RT_TRAIN_ROUTE == gr_type(route_index)) && (BT_TRAIN != gb_type(second_button)))
-				|| ((RT_SUCCESSIVE_ROUTE == gr_type(route_index)) && (BT_TRAIN != gb_type(second_button))))
-			{
-				process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
-				CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-			}
-			else
-			{
-				//CIHmi_SendNormalTips("人工解锁：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-				command_relay_cancel_route(route_index);
-			}
-			clean_button_log();
-			break;
-		/*重复开放*/	
-		case FB_REOPEN_SIGNAL : 
-			/*判断第二个按钮是否进路始端按钮*/
-			/*第二个按钮是进路始端按钮,列车进路的列车按钮，调车进路的调车按钮*/
-			if ((NO_INDEX == route_index) || (gr_start_signal(route_index) != gb_node(second_button)) 				
-				|| ((RT_SHUNTING_ROUTE == gr_type(route_index)) && (BT_SHUNTING != gb_type(second_button)))				
-				|| ((RT_TRAIN_ROUTE == gr_type(route_index)) && (BT_TRAIN != gb_type(second_button)))
-				|| ((RT_SUCCESSIVE_ROUTE == gr_type(route_index)) && (BT_TRAIN != gb_type(second_button))))
-			{
-				process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
-				CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-			}
-			else
-			{
-				//CIHmi_SendNormalTips("重复开放信号：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-				command_repeated_open_signal(route_index);
-			}
-			clean_button_log();
-			break;
-		/*区段故障解锁*/
-		case FB_SECTION_UNLOCK : 
-			/*判断第二个按钮是否轨道*/
-			if ((second_button < 0) || (second_button >= TOTAL_SIGNAL_NODE))
-			{
-				process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
-				CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));			
-			}
-			else
-			{	
-				if (gn_type(second_button) == NT_SWITCH)
+		switch(first_button)
+		{
+			/*取消进路*/	
+			case FB_CANCEL_ROUTE : 
+				/*第二个按钮是进路始端按钮,列车进路的列车按钮，调车进路的调车按钮*/
+				if ((NO_INDEX == route_index) 
+					|| (gr_start_signal(route_index) != gb_node(second_button)) 				
+					|| ((RT_SHUNTING_ROUTE == gr_type(route_index)) && (BT_SHUNTING != gb_type(second_button)))				
+					|| ((RT_TRAIN_ROUTE == gr_type(route_index)) && (BT_TRAIN != gb_type(second_button)))
+					|| ((RT_SUCCESSIVE_ROUTE == gr_type(route_index)) && (BT_TRAIN != gb_type(second_button))))
 				{
-					section = gn_switch_section(second_button);
-				}
-				else if (IsTRUE(is_section(second_button)))
-				{
-					section = second_button;
+					process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
+					CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
 				}
 				else
 				{
-					CIHmi_SendNormalTips("错误办理：%s",gn_name(gb_node(second_button)));
+					//CIHmi_SendNormalTips("取消进路：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+					command_cancel_route(route_index);
 				}
-				if (IsTRUE(is_node_locked(section,LT_LOCKED)))
+				clean_button_log();
+				break;
+			/*人工解锁*/	
+			case FB_HUMAN_UNLOCK :
+				/*第二个按钮是进路始端按钮,列车进路的列车按钮，调车进路的调车按钮*/
+				if ((NO_INDEX == route_index) || (gr_start_signal(route_index) != gb_node(second_button)) 				
+					|| ((RT_SHUNTING_ROUTE == gr_type(route_index)) && (BT_SHUNTING != gb_type(second_button)))				
+					|| ((RT_TRAIN_ROUTE == gr_type(route_index)) && (BT_TRAIN != gb_type(second_button)))
+					|| ((RT_SUCCESSIVE_ROUTE == gr_type(route_index)) && (BT_TRAIN != gb_type(second_button))))
 				{
-					//CIHmi_SendNormalTips("区段故障解锁：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-					command_section_unlock(section);
+					process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
+					CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
 				}
 				else
 				{
-					CIHmi_SendNormalTips("错误办理：%s",gn_name(gb_node(second_button)));
+					//CIHmi_SendNormalTips("人工解锁：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+					command_relay_cancel_route(route_index);
 				}
-			}
-			clean_button_log();
-			break;
-		/*引导进路*/	
-		case FB_GUIDE_ROUTE : 
-			/*判断第二个按钮是进站或进路信号机的列车按钮*/			
-			if ((NT_ENTRY_SIGNAL == gn_type(gb_node(second_button)) && BT_TRAIN == gb_type(second_button))
-				|| (NT_ROUTE_SIGNAL == gn_type(gb_node(second_button)) && BT_TRAIN == gb_type(second_button)))
-			{
-				//CIHmi_SendNormalTips("引导进路：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-				command_guide_route(gb_node(second_button));
-			}
-			else
-			{
-				process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
-				CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-			}
-			clean_button_log();
-			break;
-		/*引总锁闭*/
-		case FB_THROAT_LOCK : 
-			/*判断第二个按钮是引总锁闭咽喉按钮*/
-			if (BT_THROAT_GUIDE_LOCK == gb_type(second_button))
-			{
-				//CIHmi_SendNormalTips("引总锁闭：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-				throat_lock(gn_throat(gb_node(second_button)));				
-			} 
-			else
-			{
-				process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
-				CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-			}		
-			clean_button_log();
-			break;
-		/*引总解锁*/
-		case FB_THROAT_UNLOCK : 	
-			/*判断第二个按钮是引总锁闭咽喉按钮*/
-			if (BT_THROAT_GUIDE_LOCK == gb_type(second_button))
-			{
-				//CIHmi_SendNormalTips("引总解锁：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-				throat_unlock(gn_throat(gb_node(second_button)));				
-			}
-			else
-			{
-				process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
-				CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-			}			
-			clean_button_log();
-			break;
-		/*道岔单锁*/
-		case FB_SWITCH_LOCK : 
-			/*判断第二个按钮是道岔*/
-			if (NT_SWITCH != gn_type(gb_node(second_button)))
-			{
-				process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
-				CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-			}
-			else
-			{
-				//CIHmi_SendNormalTips("单锁道岔：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-				switch_single_lock(gb_node(second_button));
-			}			
-			clean_button_log();
-			break;
-		/*道岔单解*/
-		case FB_SWITCH_UNLOCK : 
-			/*判断第二个按钮是道岔*/
-			if (NT_SWITCH != gn_type(gb_node(second_button)))
-			{
-				process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
-				CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-			}
-			else
-			{
-				//CIHmi_SendNormalTips("单解道岔：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-				switch_single_unlock(gb_node(second_button));
-			}				
-			clean_button_log();
-			break;
-		/*道岔封锁*/
-		case FB_SWITCH_CLOSE : 
-			/*判断第二个按钮是道岔*/
-			if (NT_SWITCH != gn_type(gb_node(second_button)))
-			{
-				process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
-				CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-			}
-			else
-			{
-				//CIHmi_SendNormalTips("封锁道岔：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-				switch_close_up(gb_node(second_button));
-			}				
-			clean_button_log();
-			break;
-		/*道岔解封*/	
-		case FB_SWITCH_UNCLOSE : 
-			/*判断第二个按钮是道岔*/
-			if (NT_SWITCH != gn_type(gb_node(second_button)))
-			{
-				process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
-				CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-			}
-			else
-			{
-				//CIHmi_SendNormalTips("解封道岔：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-				switch_unclose_up(gb_node(second_button));
-			}			
-			clean_button_log();
-			break;
-		/*道岔定操*/	
-		case FB_SWITCH_NORMAL : 
-			/*判断第二个按钮是道岔*/
-			if ( (NT_SWITCH != gn_type(second_button)))
-			{
-				process_warning(ERR_OPERATION,gn_name(second_button));
-				CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-			}
-			else
-			{
-				//CIHmi_SendNormalTips("定操道岔：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-				switch_single_operate(gb_node(second_button), SWS_NORMAL);
-			}				
-			clean_button_log();
-			break;
-		/*道岔反操*/
-		case FB_SWITCH_REVERSE : 
-			/*判断第二个按钮是道岔*/
-			if ( (NT_SWITCH != gn_type(second_button)))
-			{
-				process_warning(ERR_OPERATION,gn_name(second_button));
-				CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-			}
-			else
-			{
-				//CIHmi_SendNormalTips("反操道岔：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-				switch_single_operate(gb_node(second_button), SWS_REVERSE);
-			}				
-			clean_button_log();
-			break;
-		/*关闭信号*/	
-		case FB_CLOSE_SIGNAL : 
-			/*第二个按钮是进路始端按钮,列车进路的列车按钮，调车进路的调车按钮*/
-			if ((NO_INDEX == route_index) || (gr_start_signal(route_index) != gb_node(second_button)) 				
-				|| ((RT_SHUNTING_ROUTE == gr_type(route_index)) && (BT_SHUNTING != gb_type(second_button)))				
-				|| ((RT_TRAIN_ROUTE == gr_type(route_index)) && (BT_TRAIN != gb_type(second_button)))
-				|| ((RT_SUCCESSIVE_ROUTE == gr_type(route_index)) && (BT_TRAIN != gb_type(second_button))))
-			{
-				/*引总锁闭后的引导信号关闭*/
-				if ((NO_INDEX == route_index) && (SGS_YB == gn_signal_state(gb_node(second_button))))
+				clean_button_log();
+				break;
+			/*重复开放*/	
+			case FB_REOPEN_SIGNAL : 
+				/*判断第二个按钮是否进路始端按钮*/
+				/*第二个按钮是进路始端按钮,列车进路的列车按钮，调车进路的调车按钮*/
+				if ((NO_INDEX == route_index) || (gr_start_signal(route_index) != gb_node(second_button)) 				
+					|| ((RT_SHUNTING_ROUTE == gr_type(route_index)) && (BT_SHUNTING != gb_type(second_button)))				
+					|| ((RT_TRAIN_ROUTE == gr_type(route_index)) && (BT_TRAIN != gb_type(second_button)))
+					|| ((RT_SUCCESSIVE_ROUTE == gr_type(route_index)) && (BT_TRAIN != gb_type(second_button))))
 				{
-					//CIHmi_SendNormalTips("关闭信号：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-					command_close_signal(gb_node(second_button));
+					process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
+					CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
 				}
-				else if ((NO_INDEX != route_index) && (SGS_YB == gn_signal_state(gb_node(second_button)))
-					&& (gr_start_signal(route_index) != gb_node(second_button)))
+				else
 				{
-					command_close_signal(gb_node(second_button));
+					//CIHmi_SendNormalTips("重复开放信号：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+					command_repeated_open_signal(route_index);
+				}
+				clean_button_log();
+				break;
+			/*区段故障解锁*/
+			case FB_SECTION_UNLOCK : 
+				/*判断第二个按钮是否轨道*/
+				if ((second_button < 0) || (second_button >= TOTAL_SIGNAL_NODE))
+				{
+					process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
+					CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));			
+				}
+				else
+				{	
+					if (gn_type(second_button) == NT_SWITCH)
+					{
+						section = gn_switch_section(second_button);
+					}
+					else if (IsTRUE(is_section(second_button)))
+					{
+						section = second_button;
+					}
+					else
+					{
+						CIHmi_SendNormalTips("错误办理：%s",gn_name(gb_node(second_button)));
+					}
+					if (IsTRUE(is_node_locked(section,LT_LOCKED)))
+					{
+						//CIHmi_SendNormalTips("区段故障解锁：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+						command_section_unlock(section);
+					}
+					else
+					{
+						CIHmi_SendNormalTips("错误办理：%s",gn_name(gb_node(second_button)));
+					}
+				}
+				clean_button_log();
+				break;
+				/*引导进路*/	
+			case FB_GUIDE_ROUTE : 
+				/*判断第二个按钮是进站或进路信号机的列车按钮*/			
+				if ((NT_ENTRY_SIGNAL == gn_type(gb_node(second_button)) && BT_TRAIN == gb_type(second_button))
+					|| (NT_ROUTE_SIGNAL == gn_type(gb_node(second_button)) && BT_TRAIN == gb_type(second_button)))
+				{
+					//CIHmi_SendNormalTips("引导进路：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+					command_guide_route(gb_node(second_button));
 				}
 				else
 				{
 					process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
 					CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
 				}
-			}
-			else
-			{
-				//CIHmi_SendNormalTips("关闭信号：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-				command_close_signal(gb_node(second_button));
-			}	
-			clean_button_log();
-			break;
-		/*按钮封锁*/
-		case FB_BUTTON_CLOSE : 
-			if ((gb_type(second_button) >= BT_TRAIN) && (gb_type(second_button) <= BT_CHANGE))
-			{
-				set_lock_button(second_button,CI_TRUE);
-			}
-			else
-			{
-				process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
-				CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-			}				
-			clean_button_log();
-			break;
-		/*按钮解封*/
-		case FB_BUTTON_UNCLOSE : 
-			if ((gb_type(second_button) >= BT_TRAIN) && (gb_type(second_button) <= BT_CHANGE))
-			{
-				set_lock_button(second_button,CI_FALSE);
-			}
-			else
-			{
-				process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
-				CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-			}			
-			clean_button_log();
-			break;
-		/*坡道解锁*/ 
-		case FB_SUCCESSIVE_UNLOCK : 
-			if ((NO_INDEX == route_index) || (gr_start_signal(route_index) != gb_node(second_button)))
-			{
-				process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
-				CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-			}
-			else
-			{
-				//CIHmi_SendNormalTips("坡道解锁：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-				command_succesive_route_unlock(route_index);
-			}
-			clean_button_log();
-			break;
-		/*非进路控制*/	
-		case FB_HOLD_ROUTE : 
-			if (gs_hold_route_shunting_index(gb_node(second_button)) != NO_INDEX)
-			{
-				//CIHmi_SendNormalTips("非进路调车：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-				command_hold_route_shunting(gs_hold_route_shunting_index(gb_node(second_button)));
-			}
-			else
-			{
-				process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
-				CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-			}			
-			clean_button_log();
-			break;
-		/*非进路故障*/
-		case FB_HOLD_ROUTE_FAULT : 
-			if (gs_hold_route_shunting_index(gb_node(second_button)) != NO_INDEX)
-			{
-				//CIHmi_SendNormalTips("非进路调车故障恢复：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-				hold_route_shunting_fault(gs_hold_route_shunting_index(gb_node(second_button)));
-			}
-			else
-			{
-				process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
-				CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
-			}			
-			clean_button_log();
-			break;
-		/*区段分路不良*/
-		case FB_TRAIN_LOSS_IN_SECTION:
-			if ((second_button < 0) || (second_button >= TOTAL_SIGNAL_NODE))
-			{
-				CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));			
-			}
-			else
-			{
-				/*获取区段*/
-				if (gn_type(second_button) == NT_SWITCH)
+				clean_button_log();
+				break;
+				/*引总锁闭*/
+			case FB_THROAT_LOCK : 
+				/*判断第二个按钮是引总锁闭咽喉按钮*/
+				if (BT_THROAT_GUIDE_LOCK == gb_type(second_button))
 				{
-					section = gn_switch_section(second_button);
-				}
-				else if (IsTRUE(is_section(second_button)))
+					//CIHmi_SendNormalTips("引总锁闭：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+					throat_lock(gn_throat(gb_node(second_button)));				
+				} 
+				else
 				{
-					section = second_button;
+					process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
+					CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+				}		
+				clean_button_log();
+				break;
+				/*引总解锁*/
+			case FB_THROAT_UNLOCK : 	
+				/*判断第二个按钮是引总锁闭咽喉按钮*/
+				if (BT_THROAT_GUIDE_LOCK == gb_type(second_button))
+				{
+					//CIHmi_SendNormalTips("引总解锁：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+					throat_unlock(gn_throat(gb_node(second_button)));				
 				}
 				else
 				{
-					CIHmi_SendNormalTips("错误办理：%s",gn_name(gb_node(second_button)));
-				}
-				/*设置或取消分路不良标志*/
-				if (IsFALSE(is_train_loss_in_section(section)))
+					process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
+					CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+				}			
+				clean_button_log();
+				break;
+				/*道岔单锁*/
+			case FB_SWITCH_LOCK : 
+				/*判断第二个按钮是道岔*/
+				if (NT_SWITCH != gn_type(gb_node(second_button)))
 				{
-					set_train_loss_in_section(section,CI_TRUE);
+					process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
+					CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
 				}
 				else
 				{
-					set_train_loss_in_section(section,CI_FALSE);
+					//CIHmi_SendNormalTips("单锁道岔：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+					switch_single_lock(gb_node(second_button));
+				}			
+				clean_button_log();
+				break;
+				/*道岔单解*/
+			case FB_SWITCH_UNLOCK : 
+				/*判断第二个按钮是道岔*/
+				if (NT_SWITCH != gn_type(gb_node(second_button)))
+				{
+					process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
+					CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
 				}
-			}
-			clean_button_log();
-			break;
+				else
+				{
+					//CIHmi_SendNormalTips("单解道岔：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+					switch_single_unlock(gb_node(second_button));
+				}				
+				clean_button_log();
+				break;
+				/*道岔封锁*/
+			case FB_SWITCH_CLOSE : 
+				/*判断第二个按钮是道岔*/
+				if (NT_SWITCH != gn_type(gb_node(second_button)))
+				{
+					process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
+					CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+				}
+				else
+				{
+					//CIHmi_SendNormalTips("封锁道岔：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+					switch_close_up(gb_node(second_button));
+				}				
+				clean_button_log();
+				break;
+				/*道岔解封*/	
+			case FB_SWITCH_UNCLOSE : 
+				/*判断第二个按钮是道岔*/
+				if (NT_SWITCH != gn_type(gb_node(second_button)))
+				{
+					process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
+					CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+				}
+				else
+				{
+					//CIHmi_SendNormalTips("解封道岔：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+					switch_unclose_up(gb_node(second_button));
+				}			
+				clean_button_log();
+				break;
+				/*道岔定操*/	
+			case FB_SWITCH_NORMAL : 
+				/*判断第二个按钮是道岔*/
+				if ( (NT_SWITCH != gn_type(second_button)))
+				{
+					process_warning(ERR_OPERATION,gn_name(second_button));
+					CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+				}
+				else
+				{
+					//CIHmi_SendNormalTips("定操道岔：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+					switch_single_operate(gb_node(second_button), SWS_NORMAL);
+				}				
+				clean_button_log();
+				break;
+				/*道岔反操*/
+			case FB_SWITCH_REVERSE : 
+				/*判断第二个按钮是道岔*/
+				if ( (NT_SWITCH != gn_type(second_button)))
+				{
+					process_warning(ERR_OPERATION,gn_name(second_button));
+					CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+				}
+				else
+				{
+					//CIHmi_SendNormalTips("反操道岔：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+					switch_single_operate(gb_node(second_button), SWS_REVERSE);
+				}				
+				clean_button_log();
+				break;
+				/*关闭信号*/	
+			case FB_CLOSE_SIGNAL : 
+				/*第二个按钮是进路始端按钮,列车进路的列车按钮，调车进路的调车按钮*/
+				if ((NO_INDEX == route_index) || (gr_start_signal(route_index) != gb_node(second_button)) 				
+					|| ((RT_SHUNTING_ROUTE == gr_type(route_index)) && (BT_SHUNTING != gb_type(second_button)))				
+					|| ((RT_TRAIN_ROUTE == gr_type(route_index)) && (BT_TRAIN != gb_type(second_button)))
+					|| ((RT_SUCCESSIVE_ROUTE == gr_type(route_index)) && (BT_TRAIN != gb_type(second_button))))
+				{
+					/*引总锁闭后的引导信号关闭*/
+					if ((NO_INDEX == route_index) && (SGS_YB == gn_signal_state(gb_node(second_button))))
+					{
+						//CIHmi_SendNormalTips("关闭信号：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+						command_close_signal(gb_node(second_button));
+					}
+					else if ((NO_INDEX != route_index) && (SGS_YB == gn_signal_state(gb_node(second_button)))
+						&& (gr_start_signal(route_index) != gb_node(second_button)))
+					{
+						command_close_signal(gb_node(second_button));
+					}
+					else
+					{
+						process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
+						CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+					}
+				}
+				else
+				{
+					//CIHmi_SendNormalTips("关闭信号：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+					command_close_signal(gb_node(second_button));
+				}	
+				clean_button_log();
+				break;
+				/*按钮封锁*/
+			case FB_BUTTON_CLOSE : 
+				if ((gb_type(second_button) >= BT_TRAIN) && (gb_type(second_button) <= BT_CHANGE))
+				{
+					set_lock_button(second_button,CI_TRUE);
+				}
+				else
+				{
+					process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
+					CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+				}				
+				clean_button_log();
+				break;
+				/*按钮解封*/
+			case FB_BUTTON_UNCLOSE : 
+				if ((gb_type(second_button) >= BT_TRAIN) && (gb_type(second_button) <= BT_CHANGE))
+				{
+					set_lock_button(second_button,CI_FALSE);
+				}
+				else
+				{
+					process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
+					CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+				}			
+				clean_button_log();
+				break;
+				/*坡道解锁*/ 
+			case FB_SUCCESSIVE_UNLOCK : 
+				if ((NO_INDEX == route_index) || (gr_start_signal(route_index) != gb_node(second_button)))
+				{
+					process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
+					CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+				}
+				else
+				{
+					//CIHmi_SendNormalTips("坡道解锁：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+					command_succesive_route_unlock(route_index);
+				}
+				clean_button_log();
+				break;
+				/*非进路控制*/	
+			case FB_HOLD_ROUTE : 
+				if (gs_hold_route_shunting_index(gb_node(second_button)) != NO_INDEX)
+				{
+					//CIHmi_SendNormalTips("非进路调车：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+					command_hold_route_shunting(gs_hold_route_shunting_index(gb_node(second_button)));
+				}
+				else
+				{
+					process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
+					CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+				}			
+				clean_button_log();
+				break;
+				/*非进路故障*/
+			case FB_HOLD_ROUTE_FAULT : 
+				if (gs_hold_route_shunting_index(gb_node(second_button)) != NO_INDEX)
+				{
+					//CIHmi_SendNormalTips("非进路调车故障恢复：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+					hold_route_shunting_fault(gs_hold_route_shunting_index(gb_node(second_button)));
+				}
+				else
+				{
+					process_warning(ERR_OPERATION,gn_name(gb_node(second_button)));
+					CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+				}			
+				clean_button_log();
+				break;
+				/*区段分路不良*/
+			case FB_TRAIN_LOSS_IN_SECTION:
+				if ((second_button < 0) || (second_button >= TOTAL_SIGNAL_NODE))
+				{
+					CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));			
+				}
+				else
+				{
+					/*获取区段*/
+					if (gn_type(second_button) == NT_SWITCH)
+					{
+						section = gn_switch_section(second_button);
+					}
+					else if (IsTRUE(is_section(second_button)))
+					{
+						section = second_button;
+					}
+					else
+					{
+						CIHmi_SendNormalTips("错误办理：%s",gn_name(gb_node(second_button)));
+					}
+					/*设置或取消分路不良标志*/
+					if (IsFALSE(is_train_loss_in_section(section)))
+					{
+						set_train_loss_in_section(section,CI_TRUE);
+					}
+					else
+					{
+						set_train_loss_in_section(section,CI_FALSE);
+					}
+				}
+				clean_button_log();
+				break;
 
-		default :  /*没有对应的功能按钮直接退出*/
-			break;			
-	}
+			default :  /*没有对应的功能按钮直接退出*/
+				break;			
+		}
+	}	
 	FUNCTION_OUT;
 }
 
@@ -1826,3 +1849,5 @@ int16_t CICommand_SetButton(int16_t button1,
 
     return 0;
 }
+
+

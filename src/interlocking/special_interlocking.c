@@ -25,6 +25,9 @@ void sepecial_interlocking()
 
 	dk_bgcpkz53();
 	
+	
+	cross_station_route();	
+	cross_station_function(CI_TRUE);	
 	cross_station();
 
 }
@@ -357,9 +360,10 @@ void dk_bgcpkz53()
 ****************************************************/
 void cross_station()
 {
-	int16_t i,j;
 	route_t route_index = NO_INDEX,lead_route = NO_INDEX;
-	int16_t next_signal = NO_INDEX;
+	int16_t i,j,k,m,next_signal = NO_INDEX,section = NO_INDEX;
+	static uint8_t route_state = 0;
+	CI_BOOL result = CI_FALSE;
 
 	for (i = 0; i < MAX_CROSS_STATION; i++)
 	{
@@ -378,6 +382,11 @@ void cross_station()
 				&& (CrossStation1SendToStart[i].StartSignal == gr_start_signal(gn_belong_route(CrossStation1SendToStart[i].StartSignal))))
 			{
 				CrossStation1SendToStart[i].RouteState = gr_state(gn_belong_route(CrossStation1SendToStart[i].StartSignal));
+			}
+			else if ((gn_belong_route(CrossStation1SendToStart[i].StartSignal) == NO_INDEX)
+				&& (RS_FAILURE_TO_BUILD == CrossStation1SendToStart[i].RouteState))
+			{
+				//CrossStation1SendToStart[i].RouteState = RS_FAILURE_TO_BUILD;
 			}
 			else
 			{
@@ -398,6 +407,11 @@ void cross_station()
 			{
 				CrossStation2SendToStart[i].RouteState = gr_state(gn_belong_route(CrossStation2SendToStart[i].StartSignal));
 			}
+			else if ((gn_belong_route(CrossStation2SendToStart[i].StartSignal) == NO_INDEX)
+				&& (RS_FAILURE_TO_BUILD == CrossStation2SendToStart[i].RouteState))
+			{
+				//CrossStation2SendToStart[i].RouteState = RS_FAILURE_TO_BUILD;
+			}
 			else
 			{
 				CrossStation2SendToStart[i].RouteState = RS_ERROR;
@@ -407,7 +421,6 @@ void cross_station()
 		{
 			CrossStation2SendToStart[i].RouteState = RS_ERROR;
 		}
-
 
 		/*调车中途折返*/
 		/*站场1*/
@@ -460,7 +473,7 @@ void cross_station()
 				&& (RT_SHUNTING_ROUTE == gr_type(route_index))
 				&& (gb_node(gr_end_button(route_index)) == CrossStation1SendToEnd[i].StartSignal)
 				&& (gr_other_flag(route_index) == ROF_CROSS_STATION))
-			{
+			{				
 				if ((RS_AUTO_UNLOCK_FAILURE != gr_state(route_index)) || (RS_FAILURE != gr_state(route_index)) 
 					|| (RS_CRASH_INTO_SIGNAL != gr_state(route_index)))
 				{
@@ -597,6 +610,546 @@ void cross_station()
 					CrossStation2SendToEnd[i].IsRetun = CI_FALSE;
 				}
 			}
+		}
+
+		/*锁闭区段*/
+		for (j = 0; j < TOTAL_SIGNAL_NODE; j++)
+		{
+			if (strcmp_no_case(CrossStation1RecviceFromStart[i].LinkSignal,gn_name(j)) == 0)
+			{
+				/*发车*/
+				if (IsTRUE(CrossStation1RecviceFromStart[i].RouteDirection))
+				{
+					CrossStation1SendToEnd[i].RouteDirection = CI_FALSE;
+					result = CI_FALSE;
+					if ((CrossStation1SendToEnd[i].StartSignal != NO_INDEX)
+						&& (gn_belong_route(CrossStation1SendToEnd[i].StartSignal) != NO_INDEX)
+						&& (gb_node(gr_end_button(gn_belong_route(CrossStation1SendToEnd[i].StartSignal))) == CrossStation1SendToEnd[i].StartSignal)
+						&& (gr_other_flag(gn_belong_route(CrossStation1SendToEnd[i].StartSignal)) == ROF_CROSS_STATION))
+					{
+						result = CI_TRUE;
+						CrossStation1SendToEnd[i].RouteDirection = CI_TRUE;
+					}
+					if (IsFALSE(result)
+						&& (CrossStation1SendToEnd[i].StartSignal != NO_INDEX)
+						&& (gn_belong_route(CrossStation1SendToEnd[i].StartSignal) != NO_INDEX)
+						&& (gb_node(gr_end_button(gn_belong_route(CrossStation1SendToEnd[i].StartSignal))) == CrossStation1SendToEnd[i].StartSignal)
+						&& (gr_other_flag(gn_belong_route(CrossStation1SendToEnd[i].StartSignal)) == ROF_ERROR))
+					{
+						result = CI_TRUE;
+					}
+					if (IsFALSE(result))
+					{
+						for (m = 0; m < MAX_CROSS_STATION; m++)
+						{
+							if (IsTRUE(CrossStationRoute[m].IsExist))
+							{
+								result = CI_TRUE;
+								CrossStation1SendToEnd[i].RouteDirection = CI_TRUE;
+								break;
+							}
+						}
+					}
+					if (IsFALSE(result))
+					{
+						section = j;
+						for (k = 0; k < TOTAL_SIGNAL_NODE; k++)
+						{
+							if (IsTRUE(is_section(section)))
+							{
+								if (IsTRUE(CrossStation1RecviceFromStart[i].LockSection))
+								{
+									sn_locked_state(section,LT_LOCKED);
+								}
+								else
+								{
+									cn_locked_state(section,LT_LOCKED);
+								}
+								break;
+							}
+							else
+							{
+								section = gn_backword(gn_direction(j),section);
+							}
+						}
+					}
+				}	
+			}
+			if (strcmp_no_case(CrossStation2RecviceFromStart[i].LinkSignal,gn_name(j)) == 0)
+			{
+				/*发车*/
+				if (IsTRUE(CrossStation2RecviceFromStart[i].RouteDirection))
+				{
+					CrossStation2SendToEnd[i].RouteDirection = CI_FALSE;
+					result = CI_FALSE;
+					if ((CrossStation2SendToEnd[i].StartSignal != NO_INDEX)
+						&& (gn_belong_route(CrossStation2SendToEnd[i].StartSignal) != NO_INDEX)
+						&& (gb_node(gr_end_button(gn_belong_route(CrossStation2SendToEnd[i].StartSignal))) == CrossStation2SendToEnd[i].StartSignal)
+						&& (gr_other_flag(gn_belong_route(CrossStation2SendToEnd[i].StartSignal)) == ROF_CROSS_STATION))
+					{
+						result = CI_TRUE;
+						CrossStation2SendToEnd[i].RouteDirection = CI_TRUE;
+					}
+					if (IsFALSE(result)
+						&& (CrossStation2SendToEnd[i].StartSignal != NO_INDEX)
+						&& (gn_belong_route(CrossStation2SendToEnd[i].StartSignal) != NO_INDEX)
+						&& (gb_node(gr_end_button(gn_belong_route(CrossStation2SendToEnd[i].StartSignal))) == CrossStation2SendToEnd[i].StartSignal)
+						&& (gr_other_flag(gn_belong_route(CrossStation2SendToEnd[i].StartSignal)) == ROF_ERROR))
+					{
+						result = CI_TRUE;
+					}
+					if (IsFALSE(result))
+					{
+						for (m = 0; m < MAX_CROSS_STATION; m++)
+						{
+							if (IsTRUE(CrossStationRoute[m].IsExist))
+							{
+								result = CI_TRUE;
+								CrossStation2SendToEnd[i].RouteDirection = CI_TRUE;
+								break;
+							}
+						}
+					}
+					if (IsFALSE(result))
+					{
+						section = j;
+						for (k = 0; k < TOTAL_SIGNAL_NODE; k++)
+						{
+							if (IsTRUE(is_section(section)))
+							{
+								if (IsTRUE(CrossStation2RecviceFromStart[i].LockSection))
+								{
+									sn_locked_state(section,LT_LOCKED);
+								}
+								else
+								{
+									cn_locked_state(section,LT_LOCKED);
+								}
+								break;
+							}
+							else
+							{
+								section = gn_backword(gn_direction(j),section);
+							}
+						}
+					}
+				}
+			}
+		}		
+	}
+}
+
+/****************************************************
+函数名：   cross_station_function
+功能描述： 跨场作业虚拟进路功能操作
+返回值：   CI_BOOL
+参数：     CI_BOOL delay_unlock_flag
+作者：	   hejh
+日期：     2015/10/21
+****************************************************/
+CI_BOOL cross_station_function(CI_BOOL delay_unlock_flag)
+{
+	int16_t i,j,k,approch_section = NO_INDEX;
+	CI_BOOL result = CI_FALSE;
+
+	/*hjh 2015-10-21 针对跨场作业虚拟进路处理*/
+	for (i = 0; i < MAX_CROSS_STATION; i++)
+	{
+		if (CrossStationRoute[i].RouteSignal != NO_INDEX)
+		{
+			/*延时解锁*/
+			if (IsTRUE(delay_unlock_flag))
+			{
+				if (IsTRUE(is_node_timer_run(CrossStationRoute[i].RouteSignal)))
+				{
+					if (IsTRUE(is_node_complete_timer(CrossStationRoute[i].RouteSignal)))
+					{
+						cn_locked_state(CrossStationRoute[i].RouteSection,LT_LOCKED);
+						CrossStationRoute[i].IsExist = CI_FALSE;
+						/*解锁跨场作业区段*/
+						for (k = 0; k < MAX_CROSS_STATION; k++)
+						{
+							if ((CrossStation1SendToEnd[k].StartSignal != NO_INDEX)
+								&& (CrossStation1SendToEnd[k].StartSignal == CrossStationRoute[i].StartSignal))
+							{
+								CrossStation1SendToEnd[k].LockSection = CI_FALSE;
+							}
+							if ((CrossStation2SendToEnd[k].StartSignal != NO_INDEX)
+								&& (CrossStation2SendToEnd[k].StartSignal == CrossStationRoute[i].StartSignal))
+							{
+								CrossStation2SendToEnd[k].LockSection = CI_FALSE;
+							}
+						}
+					}
+				}
+			}
+			/*功能操作*/
+			else
+			{
+				if (CrossStationRoute[i].RouteSignal == gb_node(second_button))
+				{
+					result = CI_TRUE;
+					switch(first_button)
+					{
+						/*取消进路*/	
+					case FB_CANCEL_ROUTE : 
+						if (IsTRUE(is_node_locked(CrossStationRoute[i].RouteSection,LT_LOCKED)))
+						{
+							approch_section = CrossStationRoute[i].RouteSignal;
+							for (j = 0; j < TOTAL_SIGNAL_NODE; j++)
+							{
+								if (IsTRUE(is_section(approch_section)))
+								{
+									if (SCS_CLEARED == gn_section_state(approch_section))
+									{
+										send_signal_command(CrossStationRoute[i].RouteSignal,SGS_A);
+										cn_locked_state(CrossStationRoute[i].RouteSection,LT_LOCKED);
+										CrossStationRoute[i].IsExist = CI_FALSE;
+										/*解锁跨场作业区段*/
+										for (k = 0; k < MAX_CROSS_STATION; k++)
+										{
+											if ((CrossStation1SendToEnd[k].StartSignal != NO_INDEX)
+												&& (CrossStation1SendToEnd[k].StartSignal == CrossStationRoute[i].StartSignal))
+											{
+												CrossStation1SendToEnd[k].LockSection = CI_FALSE;
+											}
+											if ((CrossStation2SendToEnd[k].StartSignal != NO_INDEX)
+												&& (CrossStation2SendToEnd[k].StartSignal == CrossStationRoute[i].StartSignal))
+											{
+												CrossStation2SendToEnd[k].LockSection = CI_FALSE;
+											}
+										}
+
+									}
+									else
+									{
+										CIHmi_SendNormalTips("接近区段占用：%s",gn_name(CrossStationRoute[i].RouteSignal));
+									}
+									break;
+								}
+								else
+								{
+									approch_section = gn_backword(gn_direction(CrossStationRoute[i].RouteSignal),approch_section);
+								}
+							}						
+						}
+						else
+						{
+							CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+						}
+						break;
+						/*人工解锁*/	
+					case FB_HUMAN_UNLOCK :
+						if (IsTRUE(is_node_locked(CrossStationRoute[i].RouteSection,LT_LOCKED)))
+						{
+							approch_section = CrossStationRoute[i].RouteSignal;
+							for (j = 0; j < TOTAL_SIGNAL_NODE; j++)
+							{
+								if (IsTRUE(is_section(approch_section)))
+								{
+									if (SCS_CLEARED == gn_section_state(approch_section))
+									{
+										send_signal_command(CrossStationRoute[i].RouteSignal,SGS_A);
+										cn_locked_state(CrossStationRoute[i].RouteSection,LT_LOCKED);
+										CrossStationRoute[i].IsExist = CI_FALSE;
+										/*解锁跨场作业区段*/
+										for (k = 0; k < MAX_CROSS_STATION; k++)
+										{
+											if ((CrossStation1SendToEnd[k].StartSignal != NO_INDEX)
+												&& (CrossStation1SendToEnd[k].StartSignal == CrossStationRoute[i].StartSignal))
+											{
+												CrossStation1SendToEnd[k].LockSection = CI_FALSE;
+											}
+											if ((CrossStation2SendToEnd[k].StartSignal != NO_INDEX)
+												&& (CrossStation2SendToEnd[k].StartSignal == CrossStationRoute[i].StartSignal))
+											{
+												CrossStation2SendToEnd[k].LockSection = CI_FALSE;
+											}
+										}
+									}
+									else
+									{
+										send_signal_command(CrossStationRoute[i].RouteSignal,SGS_A);
+										if (IsTRUE(is_node_timer_run(CrossStationRoute[i].RouteSignal)))
+										{
+											CIHmi_SendNormalTips("正在延时解锁：%s",gn_name(CrossStationRoute[i].RouteSignal));
+										}
+										else
+										{
+											CIHmi_SendNormalTips("接近区段占用，延时解锁");
+											sn_start_timer(CrossStationRoute[i].RouteSignal,SECONDS_30,DTT_UNLOCK);
+										}									
+									}
+									break;
+								}
+								else
+								{
+									approch_section = gn_backword(gn_direction(CrossStationRoute[i].RouteSignal),approch_section);
+								}
+							}
+						}
+						else
+						{
+							CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+						}
+						break;
+						/*区故解*/
+					case FB_SECTION_UNLOCK : 
+						if (IsTRUE(is_node_locked(CrossStationRoute[i].RouteSection,LT_LOCKED)))
+						{
+							if (gn_signal_state(CrossStationRoute[i].RouteSignal) == SGS_B)
+							{
+								send_signal_command(CrossStationRoute[i].RouteSignal,SGS_A);
+							}
+							else
+							{
+								approch_section = CrossStationRoute[i].RouteSignal;
+								for (j = 0; j < TOTAL_SIGNAL_NODE; j++)
+								{
+									if (IsTRUE(is_section(approch_section)))
+									{
+										if (SCS_CLEARED == gn_section_state(approch_section))
+										{
+											cn_locked_state(CrossStationRoute[i].RouteSection,LT_LOCKED);
+											CrossStationRoute[i].IsExist = CI_FALSE;
+											/*解锁跨场作业区段*/
+											for (k = 0; k < MAX_CROSS_STATION; k++)
+											{
+												if ((CrossStation1SendToEnd[k].StartSignal != NO_INDEX)
+													&& (CrossStation1SendToEnd[k].StartSignal == CrossStationRoute[i].StartSignal))
+												{
+													CrossStation1SendToEnd[k].LockSection = CI_FALSE;
+												}
+												if ((CrossStation2SendToEnd[k].StartSignal != NO_INDEX)
+													&& (CrossStation2SendToEnd[k].StartSignal == CrossStationRoute[i].StartSignal))
+												{
+													CrossStation2SendToEnd[k].LockSection = CI_FALSE;
+												}
+											}
+										}
+										else
+										{
+											if (IsTRUE(is_node_timer_run(CrossStationRoute[i].RouteSignal)))
+											{
+												CIHmi_SendNormalTips("正在延时解锁：%s",gn_name(CrossStationRoute[i].RouteSignal));
+											}
+											else
+											{
+												CIHmi_SendNormalTips("接近区段占用，延时解锁");
+												sn_start_timer(CrossStationRoute[i].RouteSignal,SECONDS_30,DTT_UNLOCK);
+											}									
+										}
+										break;
+									}
+									else
+									{
+										approch_section = gn_backword(gn_direction(CrossStationRoute[i].RouteSignal),approch_section);
+									}
+								}
+							}
+						}
+						else
+						{
+							CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+						}
+						break;
+						/*关闭信号*/	
+					case FB_CLOSE_SIGNAL : 
+						if (gn_signal_state(CrossStationRoute[i].RouteSignal) == SGS_B)
+						{
+							send_signal_command(CrossStationRoute[i].RouteSignal,SGS_A);
+						}
+						else
+						{
+							CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+						}
+						break;
+						/*重复开放*/	
+					case FB_REOPEN_SIGNAL :  
+						if (gn_signal_state(CrossStationRoute[i].RouteSignal) == SGS_A)
+						{
+							send_signal_command(CrossStationRoute[i].RouteSignal,SGS_B);
+						}
+						else
+						{
+							CIHmi_SendNormalTips("错误办理：%s",gb_node(second_button) == NO_INDEX ? gn_name(second_button) : gn_name(gb_node(second_button)));
+						}
+						break;
+					}
+					break;
+				}
+			}
+		}
+	}
+	return result;
+}
+
+/****************************************************
+函数名：   cross_station_route
+功能描述： 跨场作业虚拟进路关闭信号和区段解锁
+返回值：   void
+作者：	   hejh
+日期：     2015/10/22
+****************************************************/
+void cross_station_route()
+{
+	int16_t i,j,k,approch_section = NO_INDEX;
+	static uint8_t cross_station_route_state = 0;
+
+	for (i = 0; i < MAX_CROSS_STATION; i++)
+	{
+		if ((CrossStationRoute[i].RouteSignal != NO_INDEX)
+			&& (CrossStationRoute[i].RouteSection != NO_INDEX))
+		{
+			/*信号开放前*/
+			if ((gn_signal_state(CrossStationRoute[i].RouteSignal) != SGS_B)
+				&& (cross_station_route_state == 0))
+			{
+				if(IsTRUE(CrossStationRoute[i].IsExist)
+					&& (cross_station_route_state == 0))
+				{
+					if (IsTRUE(is_node_locked(CrossStationRoute[i].RouteSection,LT_LOCKED)))
+					{
+						send_signal_command(CrossStationRoute[i].RouteSignal,SGS_B);					
+					}
+					else
+					{
+						sn_locked_state(CrossStationRoute[i].RouteSection,LT_LOCKED);
+						/*锁闭跨场作业区段*/
+						for (j = 0; j < MAX_CROSS_STATION; j++)
+						{
+							if ((CrossStation1SendToEnd[j].StartSignal != NO_INDEX)
+								&& (CrossStation1SendToEnd[j].StartSignal == CrossStationRoute[i].StartSignal))
+							{
+								CrossStation1SendToEnd[j].LockSection = CI_TRUE;
+								CrossStation1SendToEnd[i].RouteDirection = CI_TRUE;
+							}
+							if ((CrossStation2SendToEnd[j].StartSignal != NO_INDEX)
+								&& (CrossStation2SendToEnd[j].StartSignal == CrossStationRoute[i].StartSignal))
+							{
+								CrossStation2SendToEnd[j].LockSection = CI_TRUE;
+								CrossStation2SendToEnd[i].RouteDirection = CI_TRUE;
+							}
+						}
+					}
+				}				
+			}
+			/*信号开放后*/
+			else
+			{
+				if (IsTRUE(is_node_locked(CrossStationRoute[i].RouteSection,LT_LOCKED))
+					&& (gn_signal_state(CrossStationRoute[i].RouteSignal) == SGS_B))
+				{
+					approch_section = CrossStationRoute[i].RouteSignal;
+					for (j = 0; j < TOTAL_SIGNAL_NODE; j++)
+					{
+						if (IsTRUE(is_section(approch_section)))
+						{
+							/*虚拟进路状态机*/
+							switch(cross_station_route_state)
+							{
+								/*初始化*/
+								case 0:
+									if (SCS_CLEARED != gn_section_state(approch_section))
+									{
+										cross_station_route_state = 1;
+									}
+									break;
+									/*接近区段占用*/
+								case 1:
+									if (SCS_CLEARED != gn_section_state(CrossStationRoute[i].RouteSection))
+									{
+										cross_station_route_state = 2;
+									}
+									break;							
+								case 2:
+									/*进路内区段出清,折返*/
+									if (SCS_CLEARED == gn_section_state(CrossStationRoute[i].RouteSection))
+									{
+										cross_station_route_state = 3;
+										send_signal_command(CrossStationRoute[i].RouteSignal,SGS_A);
+									}
+									/*接近区段出清*/
+									if (SCS_CLEARED == gn_section_state(approch_section))
+									{
+										cross_station_route_state = 4;
+										send_signal_command(CrossStationRoute[i].RouteSignal,SGS_A);
+									}
+									break;
+							}
+							break;
+						}
+						else
+						{
+							approch_section = gn_backword(gn_direction(CrossStationRoute[i].RouteSignal),approch_section);
+						}
+					}						
+				}
+				if (IsTRUE(is_node_locked(CrossStationRoute[i].RouteSection,LT_LOCKED))
+					&& (gn_signal_state(CrossStationRoute[i].RouteSignal) != SGS_B))
+				{
+					approch_section = CrossStationRoute[i].RouteSignal;
+					for (j = 0; j < TOTAL_SIGNAL_NODE; j++)
+					{
+						if (IsTRUE(is_section(approch_section)))
+						{
+							if (cross_station_route_state == 3)
+							{
+								/*接近区段出清*/
+								if (SCS_CLEARED == gn_section_state(approch_section))
+								{
+									cross_station_route_state = 0;
+									cn_locked_state(CrossStationRoute[i].RouteSection,LT_LOCKED);
+									CrossStationRoute[i].IsExist = CI_FALSE;
+									/*解锁跨场作业区段*/
+									for (k = 0; k < MAX_CROSS_STATION; k++)
+									{
+										if ((CrossStation1SendToEnd[k].StartSignal != NO_INDEX)
+											&& (CrossStation1SendToEnd[k].StartSignal == CrossStationRoute[i].StartSignal))
+										{
+											CrossStation1SendToEnd[k].LockSection = CI_FALSE;
+										}
+										if ((CrossStation2SendToEnd[k].StartSignal != NO_INDEX)
+											&& (CrossStation2SendToEnd[k].StartSignal == CrossStationRoute[i].StartSignal))
+										{
+											CrossStation2SendToEnd[k].LockSection = CI_FALSE;
+										}
+									}
+								}
+							}
+							if (cross_station_route_state == 4)
+							{
+								/*区段出清*/
+								if (SCS_CLEARED == gn_section_state(CrossStationRoute[i].RouteSection))
+								{
+									cross_station_route_state = 0;
+									cn_locked_state(CrossStationRoute[i].RouteSection,LT_LOCKED);
+									CrossStationRoute[i].IsExist = CI_FALSE;
+									/*解锁跨场作业区段*/
+									for (k = 0; k < MAX_CROSS_STATION; k++)
+									{
+										if ((CrossStation1SendToEnd[k].StartSignal != NO_INDEX)
+											&& (CrossStation1SendToEnd[k].StartSignal == CrossStationRoute[i].StartSignal))
+										{
+											CrossStation1SendToEnd[k].LockSection = CI_FALSE;
+										}
+										if ((CrossStation2SendToEnd[k].StartSignal != NO_INDEX)
+											&& (CrossStation2SendToEnd[k].StartSignal == CrossStationRoute[i].StartSignal))
+										{
+											CrossStation2SendToEnd[k].LockSection = CI_FALSE;
+										}
+									}
+								}
+							}
+							break;
+						}
+						else
+						{
+							approch_section = gn_backword(gn_direction(CrossStationRoute[i].RouteSignal),approch_section);
+						}
+					}						
+				}
+			}			
 		}
 	}
 }
@@ -915,4 +1468,21 @@ node_t cross_station_is_switch_location_right(route_t current_route,node_t curre
 		}
 	}
 	return result;
+}
+
+/****************************************************
+函数名：   cross_station_init
+功能描述： 跨场作业进路状态初始化
+返回值：   void
+作者：	   hejh
+日期：     2015/11/03
+****************************************************/
+void cross_station_init()
+{
+	int16_t i;
+	for (i = 0; i < MAX_CROSS_STATION; i++)
+	{
+		CrossStation1SendToStart[i].RouteState = RS_ERROR;
+		CrossStation2SendToStart[i].RouteState = RS_ERROR;
+	}
 }
