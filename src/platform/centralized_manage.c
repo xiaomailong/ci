@@ -315,7 +315,7 @@ int32_t CICentralized_RecvData()
             }
             else
             {
-                CILog_Msg("err2");
+                CILog_Msg("cross station2 dirty data");
             }
         }
 
